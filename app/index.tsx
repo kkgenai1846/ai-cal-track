@@ -1,11 +1,19 @@
 import { useAuth, useUser } from '@clerk/clerk-expo';
-import { Redirect } from 'expo-router';
+import { useEffect } from 'react';
 import { ActivityIndicator, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 import { AuthButton } from '../components/AuthButton';
+import { userService } from '../services/userService';
 
 export default function HomeScreen() {
   const { signOut, isSignedIn, isLoaded } = useAuth();
   const { user } = useUser();
+
+  useEffect(() => {
+    if (isLoaded && isSignedIn && user) {
+      console.log("Syncing user to Firestore...", user.id);
+      userService.syncUser(user);
+    }
+  }, [isLoaded, isSignedIn, user]);
 
   if (!isLoaded) {
     return (
@@ -16,7 +24,12 @@ export default function HomeScreen() {
   }
 
   if (!isSignedIn) {
-    return <Redirect href="/(auth)/sign-in" />;
+    // Let RootLayout handle redirection
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#6a11cb" />
+      </View>
+    );
   }
 
   return (
@@ -81,3 +94,5 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
 });
+
+

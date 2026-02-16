@@ -1,4 +1,4 @@
-import { ClerkLoaded, ClerkProvider, useAuth } from "@clerk/clerk-expo";
+import { ClerkProvider, useAuth } from "@clerk/clerk-expo";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { useEffect } from "react";
 import { ActivityIndicator, View } from "react-native";
@@ -18,6 +18,7 @@ function InitialLayout() {
   const router = useRouter();
 
   useEffect(() => {
+    console.log('InitialLayout: isLoaded =', isLoaded, ', isSignedIn =', isSignedIn, ', segment =', segments[0]);
     if (!isLoaded) return;
 
     const inAuthGroup = segments[0] === '(auth)';
@@ -50,9 +51,7 @@ function InitialLayout() {
 export default function RootLayout() {
   return (
     <ClerkProvider tokenCache={tokenCache} publishableKey={publishableKey}>
-      <ClerkLoaded>
-        <InitialLayout />
-      </ClerkLoaded>
+      <InitialLayout />
     </ClerkProvider>
   );
 }

@@ -1,6 +1,13 @@
-import { useSignUp } from '@clerk/clerk-expo';
+import { useOAuth, useSignUp } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
+import * as Linking from 'expo-linking';
 import { Link, useRouter } from 'expo-router';
+import React, { useState } from 'react';
+import { Alert, Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useWarmUpBrowser } from '../../hooks/useWarmUpBrowser';
+
+import { AuthButton } from '../../components/AuthButton';
+import { AuthInput } from '../../components/AuthInput';
 import { userService } from '../../services/userService';
 
 export default function SignUpScreen() {
@@ -14,6 +21,25 @@ export default function SignUpScreen() {
     const [pendingVerification, setPendingVerification] = useState(false);
     const [code, setCode] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+
+    useWarmUpBrowser();
+    const { startOAuthFlow } = useOAuth({ strategy: 'oauth_google' });
+
+    const onGoogleSignUpPress = React.useCallback(async () => {
+        try {
+            const { createdSessionId, setActive, signUp } = await startOAuthFlow({
+                redirectUrl: Linking.createURL('/', { scheme: 'aicaltrack' }),
+            });
+
+            if (createdSessionId) {
+                setActive!({ session: createdSessionId });
+            } else {
+                // Use signIn or signUp for next steps
+            }
+        } catch (err) {
+            console.error('OAuth error', err);
+        }
+    }, []);
 
     const onSignUpPress = async () => {
         if (!isLoaded) return;
@@ -141,6 +167,19 @@ export default function SignUpScreen() {
                             style={{ marginTop: 10 }}
                         />
 
+                        <View style={styles.divider}>
+                            <View style={styles.dividerLine} />
+                            <Text style={styles.dividerText}>OR</Text>
+                            <View style={styles.dividerLine} />
+                        </View>
+
+                        <AuthButton
+                            title="Continue with Google"
+                            onPress={onGoogleSignUpPress}
+                            variant="google"
+                            icon={<Ionicons name="logo-google" size={20} color="#333" style={{ marginRight: 8 }} />}
+                        />
+
                         <View style={styles.footer}>
                             <Text style={styles.footerText}>Already have an account? </Text>
                             <Link href="/(auth)/sign-in" asChild>
@@ -222,5 +261,20 @@ const styles = StyleSheet.create({
         color: '#6a11cb',
         fontSize: 14,
         fontWeight: '700',
+    },
+    divider: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginVertical: 24,
+    },
+    dividerLine: {
+        flex: 1,
+        height: 1,
+        backgroundColor: '#eee',
+    },
+    dividerText: {
+        marginHorizontal: 16,
+        color: '#999',
+        fontSize: 14,
     },
 });
