@@ -15,12 +15,14 @@ export interface UserData {
 export const userService = {
     async createUser(uid: string, data: Omit<UserData, 'createdAt' | 'updatedAt' | 'onboardingCompleted'>) {
         try {
+            console.log("Creating user in Firestore:", uid, data);
             await setDoc(doc(db, "users", uid), {
                 ...data,
                 createdAt: new Date(),
                 updatedAt: new Date(),
                 onboardingCompleted: false,
             });
+            console.log("User created successfully!");
             return true;
         } catch (e) {
             console.error("Error creating user: ", e);
@@ -51,8 +53,35 @@ export const userService = {
                 updatedAt: new Date()
             });
             return true;
+            return true;
         } catch (e) {
             console.error("Error updating user: ", e);
+            return false;
+        }
+    },
+
+    async syncUser(user: any) {
+        try {
+            const uid = user.id;
+            const existingUser = await this.getUser(uid);
+
+            if (!existingUser) {
+                console.log("User not found in Firestore, syncing...");
+                const email = user.emailAddresses[0]?.emailAddress || "";
+                const firstName = user.firstName || "";
+                const lastName = user.lastName || "";
+
+                await this.createUser(uid, {
+                    email,
+                    firstName,
+                    lastName,
+                    photoUrl: user.imageUrl,
+                });
+                return true;
+            }
+            return false; // User already exists
+        } catch (e) {
+            console.error("Error syncing user: ", e);
             return false;
         }
     }

@@ -1,14 +1,17 @@
-import { useSignIn } from '@clerk/clerk-expo';
+import { useOAuth, useSignIn } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
+import * as Linking from 'expo-linking';
 import { Link, useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Alert, Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { AuthButton } from '../../components/AuthButton';
 import { AuthInput } from '../../components/AuthInput';
+import { useWarmUpBrowser } from '../../hooks/useWarmUpBrowser';
 
 export default function SignInScreen() {
     const router = useRouter();
     const { signIn, setActive, isLoaded } = useSignIn();
+    useWarmUpBrowser();
 
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -34,10 +37,27 @@ export default function SignInScreen() {
         }
     };
 
-    const onGoogleSignInPress = async () => {
-        // TODO: Implement Google Sign In
-        Alert.alert('Google Sign In', 'Coming soon!');
-    };
+    const { startOAuthFlow } = useOAuth({ strategy: 'oauth_google' });
+
+    const onGoogleSignInPress = React.useCallback(async () => {
+        try {
+            const { createdSessionId, setActive, signUp } = await startOAuthFlow({
+                redirectUrl: Linking.createURL('/', { scheme: 'aicaltrack' }),
+            });
+
+            if (createdSessionId) {
+                setActive!({ session: createdSessionId });
+            } else {
+                // Use signIn or signUp for next steps such as MFA
+            }
+        } catch (err) {
+            console.error('OAuth error', err);
+        }
+    }, []);
+
+    useEffect(() => {
+        console.log("Rendering SignInScreen with Google OAuth flow");
+    }, []);
 
     return (
         <KeyboardAvoidingView
@@ -91,7 +111,7 @@ export default function SignInScreen() {
                     </View>
 
                     <AuthButton
-                        title="Continue with Google"
+                        title="Sign in with Google"
                         onPress={onGoogleSignInPress}
                         variant="google"
                         icon={<Ionicons name="logo-google" size={20} color="#333" style={{ marginRight: 8 }} />}
