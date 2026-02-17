@@ -1,5 +1,6 @@
 import { useUser } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { CaloriesCard } from '../../components/CaloriesCard';
@@ -50,59 +51,8 @@ export default function HomeScreen() {
         await userService.updateUser(user.id, newGoals);
     };
 
-    const handleAddWater = async () => {
-        if (!user || !userData) return;
-
-        // Check current water intake
-        const currentWater = dailyLog?.water || 0;
-
-        // HARD CAP at 3L - this is the absolute maximum
-        const MAX_WATER_LITERS = 3;
-
-        // The user requested the logic of the glass to be based on 3 liters total for 9 glasses
-        const basisLiters = 3;
-        const singleGlassAmount = basisLiters / 9; // ~0.333L
-        const halfGlassAmount = singleGlassAmount / 2; // ~0.167L
-
-        // Check if we can add a half glass using the HARD CAP
-        const canAddHalf = (currentWater + halfGlassAmount) <= MAX_WATER_LITERS;
-        const canAddFull = (currentWater + singleGlassAmount) <= MAX_WATER_LITERS;
-
-        if (!canAddHalf) {
-            Alert.alert(
-                "Goal Reached",
-                `You've reached your water goal of ${MAX_WATER_LITERS}L! 🎉`,
-                [{ text: "OK" }]
-            );
-            return;
-        }
-
-        const buttons: any[] = [];
-
-        if (canAddHalf) {
-            buttons.push({
-                text: "Half Glass",
-                onPress: () => performWaterUpdate(halfGlassAmount)
-            });
-        }
-
-        if (canAddFull) {
-            buttons.push({
-                text: "Full Glass",
-                onPress: () => performWaterUpdate(singleGlassAmount)
-            });
-        }
-
-        buttons.push({
-            text: "Cancel",
-            style: "cancel"
-        });
-
-        Alert.alert(
-            "Log Water",
-            "Select amount to log:",
-            buttons
-        );
+    const handleAddWater = () => {
+        router.push('/log-water');
     };
 
     const performWaterUpdate = async (amount: number) => {
@@ -120,6 +70,33 @@ export default function HomeScreen() {
 
         // Note: we still update the 'water' total in DailyLog for the progress card
         await logService.updateDailyLog(user.id, formatDate(selectedDate), { water: amount }, newActivity);
+    };
+
+    const handleReduceWater = async () => {
+        if (!user || !dailyLog) return;
+
+        // Get the most recent water activity
+        const waterActivities = dailyLog.activities?.filter(a => a.type === 'water') || [];
+
+        if (waterActivities.length > 0) {
+            // New system: Remove the last water activity
+            const lastWaterActivity = waterActivities[waterActivities.length - 1];
+            await handleDeleteActivity(lastWaterActivity);
+        } else {
+            // Legacy system: Reduce total water by 125ml (half glass)
+            const currentWater = dailyLog?.water || 0;
+
+            if (currentWater <= 0) {
+                Alert.alert("No Water", "No water intake to remove.");
+                return;
+            }
+
+            const HALF_GLASS_LITERS = 0.125; // 125ml in liters
+            const newWaterAmount = Math.max(0, currentWater - HALF_GLASS_LITERS);
+
+            // Update the daily log with reduced water
+            await logService.updateDailyLog(user.id, formatDate(selectedDate), { water: newWaterAmount - currentWater });
+        }
     };
 
     const handleDeleteActivity = async (item: ActivityLog) => {
@@ -143,24 +120,25 @@ export default function HomeScreen() {
     const handleWaterPress = (activity: ActivityLog) => {
         if (!user) return;
 
-        const basisLiters = 3;
-        const singleGlass = basisLiters / 9;
-        const halfGlass = singleGlass / 2;
+        const HALF_GLASS_ML = 125;
+        const FULL_GLASS_ML = 250;
+        const threshold = (HALF_GLASS_ML + FULL_GLASS_ML) / 2; // 187.5ml
 
-        const isHalf = (activity.waterAmount || 0) < 0.25;
-        const nextAmount = isHalf ? singleGlass : halfGlass;
-        const nextLabel = isHalf ? "Convert to Full Glass" : "Convert to Half Glass";
+        const currentMl = (activity.waterAmount || 0) * 1000;
+        const isHalf = currentMl < threshold;
+        const nextAmountMl = isHalf ? FULL_GLASS_ML : HALF_GLASS_ML;
+        const nextLabel = isHalf ? "Convert to Full Glass (250ml)" : "Convert to Half Glass (125ml)";
 
         Alert.alert(
-            "Edit Water",
-            "What would you like to do?",
+            "Edit Water Glass",
+            `Current: ${Math.round(currentMl)}ml`,
             [
                 {
                     text: nextLabel,
-                    onPress: () => logService.updateActivity(user.id, formatDate(selectedDate), activity.id, { waterAmount: nextAmount })
+                    onPress: () => logService.updateActivity(user.id, formatDate(selectedDate), activity.id, { waterAmount: nextAmountMl / 1000 })
                 },
                 {
-                    text: "Delete",
+                    text: "Delete Glass",
                     onPress: () => handleDeleteActivity(activity),
                     style: "destructive"
                 },
@@ -258,8 +236,8 @@ export default function HomeScreen() {
                 <WaterCard
                     consumedLiters={Math.min(items?.water || 0, 3)}
                     goalLiters={Math.min(userData?.dailyWater || 3, 3)}
-                    waterActivities={dailyLog?.activities?.filter(a => a.type === 'water') || []}
-                    onEdit={handleEditGoals}
+                    waterActivities={(dailyLog?.activities?.filter(a => a.type === 'water') || []).sort((a, b) => Number(a.id) - Number(b.id))}
+                    onEdit={handleReduceWater}
                     onAdd={handleAddWater}
                     onWaterPress={handleWaterPress}
                 />
@@ -288,7 +266,7 @@ export default function HomeScreen() {
                 <View style={{ height: 100 }} />
             </ScrollView>
 
-            <TouchableOpacity style={styles.fab} onPress={() => Alert.alert("Add Item", "Feature coming soon!")}>
+            <TouchableOpacity style={styles.fab} onPress={handleAddWater}>
                 <Ionicons name="add" size={30} color={Colors.primary} />
             </TouchableOpacity>
         </SafeAreaView>

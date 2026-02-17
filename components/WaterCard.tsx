@@ -30,41 +30,73 @@ export function WaterCard({
     const renderGlasses = () => {
         const glasses = [];
 
-        // Define thresholds based on 3L for 9 glasses
-        const basisLiters = 3;
-        const singleGlass = basisLiters / 9; // ~0.333L
-        const halfGlass = singleGlass / 2;    // ~0.167L
-        const threshold = (halfGlass + singleGlass) / 2; // ~0.25L middle point
+        // Define thresholds based on 125ml half and 250ml full
+        const HALF_GLASS_ML = 125;
+        const FULL_GLASS_ML = 250;
+        // Use 187ml as threshold - anything below is half, 187+ is full
+        const threshold = 187; // Middle point between 125 and 250
 
         // If we have activities, use them. Otherwise, calculate from consumedLiters for backward compatibility
         let glassesToRender: Array<{ id: string; amount: number } | null> = [];
 
         if (waterActivities.length > 0) {
-            // Use activities (new method)
-            glassesToRender = waterActivities.slice(0, 9).map(activity => ({
-                id: activity.id,
-                amount: activity.waterAmount || 0
-            }));
+            // Use activities (new method) - break down each activity into glasses
+            waterActivities.forEach((activity, activityIndex) => {
+                let remainingMl = Math.round((activity.waterAmount || 0) * 1000);
+                let glassIndex = 0;
+
+                // Break down this activity into multiple glasses if needed
+                while (remainingMl > 0 && glassesToRender.length < totalGlasses) {
+                    if (remainingMl >= FULL_GLASS_ML) {
+                        // Add a full glass
+                        glassesToRender.push({
+                            id: `${activity.id}-${glassIndex}`,
+                            amount: FULL_GLASS_ML / 1000
+                        });
+                        remainingMl -= FULL_GLASS_ML;
+                    } else if (remainingMl >= HALF_GLASS_ML) {
+                        // Add a half glass
+                        glassesToRender.push({
+                            id: `${activity.id}-${glassIndex}`,
+                            amount: HALF_GLASS_ML / 1000
+                        });
+                        remainingMl -= HALF_GLASS_ML;
+                    } else {
+                        // Add remaining as a partial glass (show as half)
+                        glassesToRender.push({
+                            id: `${activity.id}-${glassIndex}`,
+                            amount: remainingMl / 1000
+                        });
+                        remainingMl = 0;
+                    }
+                    glassIndex++;
+                }
+            });
+
             // Fill remaining slots with null
             while (glassesToRender.length < totalGlasses) {
                 glassesToRender.push(null);
             }
         } else if (consumedLiters > 0) {
             // Fallback: calculate from total consumed (for old data)
-            let remainingWater = consumedLiters;
-            for (let i = 0; i < totalGlasses && remainingWater > 0; i++) {
-                if (remainingWater >= singleGlass) {
-                    glassesToRender.push({ id: `fallback-${i}`, amount: singleGlass });
-                    remainingWater -= singleGlass;
-                } else if (remainingWater >= halfGlass) {
-                    glassesToRender.push({ id: `fallback-${i}`, amount: halfGlass });
-                    remainingWater -= halfGlass;
-                } else {
-                    // Less than half glass, just add what's left
-                    glassesToRender.push({ id: `fallback-${i}`, amount: remainingWater });
-                    remainingWater = 0;
+            let remainingMl = Math.round(consumedLiters * 1000); // Convert to ml and round
+
+            for (let i = 0; i < totalGlasses && remainingMl > 0; i++) {
+                if (remainingMl >= FULL_GLASS_ML) {
+                    // Full glass
+                    glassesToRender.push({ id: `fallback-${i}`, amount: FULL_GLASS_ML / 1000 });
+                    remainingMl -= FULL_GLASS_ML;
+                } else if (remainingMl >= HALF_GLASS_ML) {
+                    // Half glass
+                    glassesToRender.push({ id: `fallback-${i}`, amount: HALF_GLASS_ML / 1000 });
+                    remainingMl -= HALF_GLASS_ML;
+                } else if (remainingMl > 0) {
+                    // Less than half glass - still show as half glass if there's any water
+                    glassesToRender.push({ id: `fallback-${i}`, amount: remainingMl / 1000 });
+                    remainingMl = 0;
                 }
             }
+
             // Fill remaining slots with null
             while (glassesToRender.length < totalGlasses) {
                 glassesToRender.push(null);
@@ -79,9 +111,12 @@ export function WaterCard({
             const glassData = glassesToRender[i];
 
             if (glassData) {
-                // Determine if half or full based on amount
-                const amount = glassData.amount;
-                const isHalf = amount < threshold;
+                // Determine if half or full based on amount (convert to ml for comparison)
+                const amountMl = Math.round(glassData.amount * 1000);
+                const isHalf = amountMl < threshold; // Less than 187ml = half glass
+
+                console.log(`Glass ${i}: ${amountMl}ml, isHalf: ${isHalf}, threshold: ${threshold}`);
+
                 const iconSource = isHalf
                     ? require("@/assets/images/half_glass.png")
                     : require("@/assets/images/full_glass.png");
@@ -125,14 +160,14 @@ export function WaterCard({
             <View style={styles.header}>
                 <View style={styles.headerLeft}>
                     <Text style={styles.title}>Water</Text>
-                    <Text style={styles.subtitle}>{consumedLiters.toFixed(2)} / {goalLiters} L</Text>
+                    <Text style={styles.subtitle}>{consumedLiters.toFixed(2)} / {goalLiters.toFixed(1)} L</Text>
                 </View>
                 <View style={styles.actions}>
                     <TouchableOpacity onPress={onAdd} style={styles.addButton}>
                         <Ionicons name="add" size={20} color="white" />
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={onEdit} style={styles.editButton}>
-                        <Ionicons name="pencil" size={16} color={Colors.primary} />
+                    <TouchableOpacity onPress={onEdit} style={styles.removeButton}>
+                        <Ionicons name="remove" size={20} color="white" />
                     </TouchableOpacity>
                 </View>
             </View>
@@ -199,6 +234,14 @@ const styles = StyleSheet.create({
         height: 32,
         borderRadius: 16,
         backgroundColor: Colors.primary,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    removeButton: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: Colors.error,
         alignItems: "center",
         justifyContent: "center",
     },

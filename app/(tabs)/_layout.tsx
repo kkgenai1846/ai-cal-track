@@ -110,7 +110,7 @@ export default function TabLayout() {
                 }}
                 onAddWater={() => {
                     setIsQuickAddVisible(false);
-                    Alert.alert('Add Water', 'Feature coming soon!');
+                    router.push('/log-water');
                 }}
                 onFoodDatabase={() => {
                     setIsQuickAddVisible(false);
