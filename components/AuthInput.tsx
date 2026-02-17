@@ -1,7 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import { StyleSheet, Text, TextInput, TextInputProps, TouchableOpacity, View } from 'react-native';
-import { Colors } from '../constants/Colors';
 
 interface AuthInputProps extends TextInputProps {
     label?: string;
@@ -29,7 +28,7 @@ export const AuthInput: React.FC<AuthInputProps> = ({
             ]}>
                 <TextInput
                     style={[styles.input, style]}
-                    placeholderTextColor={Colors.inputPlaceholder}
+                    placeholderTextColor="#999"
                     secureTextEntry={isPassword && !showPassword}
                     onFocus={() => setIsFocused(true)}
                     onBlur={() => setIsFocused(false)}
@@ -37,7 +36,7 @@ export const AuthInput: React.FC<AuthInputProps> = ({
                 />
                 {isPassword && (
                     <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.icon}>
-                        <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={20} color={Colors.textLight} />
+                        <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={20} color="#999" />
                     </TouchableOpacity>
                 )}
             </View>
@@ -52,7 +51,7 @@ const styles = StyleSheet.create({
         width: '100%',
     },
     label: {
-        color: Colors.text,
+        color: '#333',
         marginBottom: 8,
         fontSize: 14,
         fontWeight: '500',
@@ -60,7 +59,7 @@ const styles = StyleSheet.create({
     inputContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: Colors.inputBackground,
+        backgroundColor: '#f5f5f5',
         borderRadius: 12,
         borderWidth: 1,
         borderColor: 'transparent',
@@ -68,23 +67,23 @@ const styles = StyleSheet.create({
         paddingHorizontal: 15,
     },
     focusedInput: {
-        borderColor: Colors.primary,
-        backgroundColor: Colors.white,
+        borderColor: '#6a11cb',
+        backgroundColor: '#fff',
     },
     errorInput: {
-        borderColor: Colors.error,
+        borderColor: '#ff4d4f',
     },
     input: {
         flex: 1,
         height: '100%',
-        color: Colors.text,
+        color: '#333',
         fontSize: 16,
     },
     icon: {
         padding: 5,
     },
     errorText: {
-        color: Colors.error,
+        color: '#ff4d4f',
         fontSize: 12,
         marginTop: 5,
     },

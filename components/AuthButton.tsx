@@ -1,7 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
 import { ActivityIndicator, StyleSheet, Text, TextStyle, TouchableOpacity, ViewStyle } from 'react-native';
-import { Colors } from '../constants/Colors';
 
 interface AuthButtonProps {
     title: string;
@@ -38,7 +37,7 @@ export const AuthButton: React.FC<AuthButtonProps> = ({
             ]}
         >
             {isLoading ? (
-                <ActivityIndicator color={isPrimary ? Colors.white : Colors.text} />
+                <ActivityIndicator color={isPrimary ? '#fff' : '#000'} />
             ) : (
                 <>
                     {icon && <>{icon}</>}
@@ -58,7 +57,7 @@ export const AuthButton: React.FC<AuthButtonProps> = ({
     if (isPrimary) {
         return (
             <LinearGradient
-                colors={[...Colors.primaryGradient]}
+                colors={['#6a11cb', '#2575fc']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={[styles.gradient, style]}
@@ -70,7 +69,7 @@ export const AuthButton: React.FC<AuthButtonProps> = ({
                     style={styles.gradientButton}
                 >
                     {isLoading ? (
-                        <ActivityIndicator color={Colors.white} />
+                        <ActivityIndicator color="#fff" />
                     ) : (
                         <Text style={styles.text}>{title}</Text>
                     )}
@@ -103,24 +102,24 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
     },
     googleContainer: {
-        backgroundColor: Colors.white,
+        backgroundColor: '#fff',
         borderWidth: 1,
-        borderColor: Colors.borderDark,
+        borderColor: '#ddd',
         marginTop: 10,
     },
     secondaryContainer: {
         backgroundColor: 'transparent',
     },
     text: {
-        color: Colors.white,
+        color: '#fff',
         fontSize: 16,
         fontWeight: '600',
         marginLeft: 8,
     },
     googleText: {
-        color: Colors.google,
+        color: '#333',
     },
     secondaryText: {
-        color: Colors.primary,
+        color: '#6a11cb',
     },
 });

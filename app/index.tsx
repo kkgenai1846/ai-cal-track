@@ -1,41 +1,24 @@
 import { useAuth, useUser } from '@clerk/clerk-expo';
-import { useRouter } from 'expo-router';
 import { useEffect } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
-import { Colors } from '../constants/Colors';
+import { ActivityIndicator, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { AuthButton } from '../components/AuthButton';
 import { userService } from '../services/userService';
 
 export default function HomeScreen() {
   const { signOut, isSignedIn, isLoaded } = useAuth();
   const { user } = useUser();
 
-  const router = useRouter();
-
   useEffect(() => {
-    const checkUserStatus = async () => {
-      if (isLoaded && isSignedIn && user) {
-        console.log("Syncing user to Firestore...", user.id);
-        const userData = await userService.syncUser(user);
-
-        if (userData && !userData.onboardingCompleted) {
-          console.log("Redirecting to onboarding...");
-          // @ts-ignore
-          router.replace('/onboarding');
-        } else if (userData && userData.onboardingCompleted) {
-          console.log("Redirecting to main tabs...");
-          // @ts-ignore
-          router.replace('/(tabs)/home');
-        }
-      }
-    };
-
-    checkUserStatus();
+    if (isLoaded && isSignedIn && user) {
+      console.log("Syncing user to Firestore...", user.id);
+      userService.syncUser(user);
+    }
   }, [isLoaded, isSignedIn, user]);
 
   if (!isLoaded) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color={Colors.primary} />
+        <ActivityIndicator size="large" color="#6a11cb" />
       </View>
     );
   }
@@ -44,23 +27,37 @@ export default function HomeScreen() {
     // Let RootLayout handle redirection
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color={Colors.primary} />
+        <ActivityIndicator size="large" color="#6a11cb" />
       </View>
     );
   }
 
   return (
-    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background }}>
-      <ActivityIndicator size="large" color={Colors.primary} />
-      <Text style={{ marginTop: 20, color: Colors.textSecondary }}>Loading your profile...</Text>
-    </View>
+    <SafeAreaView style={styles.container}>
+      <View style={styles.content}>
+        <Text style={styles.title}>Welcome back,</Text>
+        <Text style={styles.subtitle}>{user?.firstName || 'User'}!</Text>
+
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Your Progress</Text>
+          <Text style={styles.cardText}>No data yet. Start tracking your calories!</Text>
+        </View>
+
+        <AuthButton
+          title="Sign Out"
+          onPress={() => signOut()}
+          style={{ marginTop: 40, backgroundColor: '#ff4d4f' }}
+          textStyle={{ color: '#fff' }}
+        />
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: '#fff',
   },
   content: {
     padding: 24,
@@ -69,31 +66,31 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: '600',
-    color: Colors.textSecondary,
+    color: '#666',
     marginTop: 20,
   },
   subtitle: {
     fontSize: 32,
     fontWeight: '700',
-    color: Colors.text,
+    color: '#1a1a1a',
     marginBottom: 40,
   },
   card: {
-    backgroundColor: Colors.surface,
+    backgroundColor: '#f8f9fa',
     borderRadius: 16,
     padding: 20,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: '#eee',
   },
   cardTitle: {
     fontSize: 18,
     fontWeight: '600',
     marginBottom: 8,
-    color: Colors.google,
+    color: '#333',
   },
   cardText: {
-    color: Colors.textSecondary,
+    color: '#666',
     lineHeight: 22,
   },
 });
