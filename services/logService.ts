@@ -189,6 +189,27 @@ export const logService = {
             console.error("Error updating activity: ", e);
             return false;
         }
+    },
+
+    async logWeight(uid: string, weight: number, date: string) {
+        try {
+            // 1. Update user profile
+            const userRef = doc(db, "users", uid);
+            await updateDoc(userRef, {
+                weight: weight,
+                lastWeightUpdate: new Date().toISOString()
+            });
+
+            // 2. Add to weight history
+            const weightLogRef = doc(db, "users", uid, "weightLogs", date);
+            await setDoc(weightLogRef, {
+                weight: weight,
+                date: date,
+                timestamp: Date.now()
+            });
+        } catch (e) {
+            console.error("Error logging weight:", e);
+            throw e;
+        }
     }
-}
-    ;
+};

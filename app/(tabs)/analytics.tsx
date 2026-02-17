@@ -1,10 +1,15 @@
 import { useUser } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, Modal, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Dimensions, Image, Modal, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { BarChart, LineChart, StackedBarChart } from 'react-native-chart-kit';
 import { Colors } from '../../constants/Colors';
 import { aiService, WeeklyInsight } from '../../services/aiService';
 import { logService } from '../../services/logService';
+
+
+// ... existing imports
 
 // Helper to format date as YYYY-MM-DD
 const formatDate = (date: Date) => {
@@ -35,15 +40,29 @@ const getWeekDates = () => {
 const DAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
 export default function AnalyticsScreen() {
+    const router = useRouter();
     const { user } = useUser();
     const [weekStreak, setWeekStreak] = useState<boolean[]>(Array(7).fill(false));
     const [currentStreak, setCurrentStreak] = useState(0);
     const [streakModalVisible, setStreakModalVisible] = useState(false);
     const [weightModalVisible, setWeightModalVisible] = useState(false);
 
+    const formatWaterValue = (value: number) => {
+        if (value < 1) {
+            return `${Math.round(value * 1000)} ml`;
+        }
+        return `${value.toFixed(1)} L`;
+    };
+
+    // Chart Data State
+    const [weeklyCalories, setWeeklyCalories] = useState<number[]>(Array(7).fill(0));
+    const [weeklyEnergyData, setWeeklyEnergyData] = useState<number[][]>([]);
+    const [energySummary, setEnergySummary] = useState({ burned: 0, consumed: 0, net: 0 });
+    const [weeklyWater, setWeeklyWater] = useState<number[]>(Array(7).fill(0));
+
     // AI Analysis State
     const [weeklyInsight, setWeeklyInsight] = useState<WeeklyInsight | null>(null);
-    const [loadingInsight, setLoadingInsight] = useState(false);
+    const [loadingInsight, setLoadingInsight] = useState(true);
 
     // Weight Editing State
     const [newWeight, setNewWeight] = useState('');
@@ -60,8 +79,13 @@ export default function AnalyticsScreen() {
 
         const weekDates = getWeekDates();
         const streakData: boolean[] = [];
+        const calorieData: number[] = [];
+        const energyData: number[][] = [];
+        const waterData: number[] = [];
+        let totalBurned = 0;
+        let totalConsumed = 0;
 
-        // Check each day for activities
+        // Check each day for activities and calories
         for (const date of weekDates) {
             const dateStr = formatDate(date);
             const dailyLog = await logService.getDailyLog(user.id, dateStr);
@@ -69,9 +93,45 @@ export default function AnalyticsScreen() {
             // Day has streak if it has at least one activity
             const hasActivity = dailyLog && dailyLog.activities && dailyLog.activities.length > 0;
             streakData.push(hasActivity || false);
+
+            // Calculate Consumed vs Burned
+            let dayConsumed = 0;
+            let dayBurned = 0;
+
+            if (dailyLog && dailyLog.activities) {
+                dailyLog.activities.forEach(activity => {
+                    if (activity.type === 'meal' || activity.type === 'food') {
+                        dayConsumed += (activity.calories || 0);
+                    } else if (activity.type === 'exercise') {
+                        dayBurned += (activity.calories || 0);
+                    }
+                });
+            }
+
+            // Fallback: if no activities but calories exist (legacy data or direct log), assume it's consumed
+            if (dayConsumed === 0 && dayBurned === 0 && dailyLog?.calories) {
+                dayConsumed = dailyLog.calories;
+            }
+
+            calorieData.push(dayBurned); // For the first chart (Burned)
+            energyData.push([dayBurned, dayConsumed]);
+
+            totalBurned += dayBurned;
+            totalConsumed += dayConsumed;
+
+            // Get total water (assuming dailyLog.water is in ml or liters, just displaying value)
+            waterData.push(dailyLog?.water || 0);
         }
 
         setWeekStreak(streakData);
+        setWeeklyCalories(calorieData);
+        setWeeklyEnergyData(energyData);
+        setWeeklyWater(waterData);
+        setEnergySummary({
+            burned: totalBurned,
+            consumed: totalConsumed,
+            net: totalConsumed - totalBurned
+        });
 
         // Calculate current streak (consecutive days from today backwards)
         const today = new Date().getDay(); // 0 = Sunday
@@ -86,12 +146,12 @@ export default function AnalyticsScreen() {
         setCurrentStreak(streak);
     };
 
-    // Fetch AI Insight when streak modal opens
+    // Fetch AI Insight on mount
     useEffect(() => {
-        if (streakModalVisible && !weeklyInsight && !loadingInsight && user) {
+        if (user && !weeklyInsight) {
             generateInsight();
         }
-    }, [streakModalVisible]);
+    }, [user]);
 
     const generateInsight = async () => {
         if (!user) return;
@@ -104,9 +164,15 @@ export default function AnalyticsScreen() {
                 const log = await logService.getDailyLog(user.id, dateStr);
                 if (log) logs.push(log);
             }
+            // Even if few logs, try to generate insight or fallback
             if (logs.length > 0) {
-                const insight = await aiService.generateWeeklyInsight(logs);
+                const insight = await aiService.generateWeeklyInsight(user.id, logs);
                 setWeeklyInsight(insight);
+            } else {
+                // If no logs, maybe stop loading? Or handle as "No data"
+                // For now, let's just unset loading so the specific "No Data" UI can show if we add it, 
+                // or the "Tap to retry" button appears (refactored below to be "No Data")
+                setLoadingInsight(false);
             }
         } catch (error) {
             console.error("Failed to generate insight", error);
@@ -194,30 +260,298 @@ export default function AnalyticsScreen() {
                         </View>
                     </TouchableOpacity>
 
-                    {/* My Weight Card */}
+                    {/* Weight Card */}
                     <TouchableOpacity
                         style={styles.card}
-                        activeOpacity={0.7}
-                        onPress={() => setWeightModalVisible(true)}
+                        onPress={() => router.push('/update-weight')}
                     >
                         <View style={styles.weightIconContainer}>
                             <Ionicons name="fitness" size={24} color={Colors.primary} />
                         </View>
-                        <Text style={styles.cardTitle}>My Weight</Text>
+                        <Text style={styles.cardTitle}>Current Weight</Text>
                         <View style={styles.weightDisplay}>
-                            <Text style={styles.weightNumber}>
-                                {weight || '--'}
-                            </Text>
+                            <Text style={styles.weightNumber}>{weight ? weight : '--'}</Text>
                             <Text style={styles.weightUnit}>kg</Text>
                         </View>
-                        {!weight && (
-                            <Text style={styles.weightHint}>Set in profile</Text>
-                        )}
+                        <Text style={styles.weightHint}>Tap to update</Text>
                         <View style={styles.nextIconContainer}>
-                            <Ionicons name="chevron-forward" size={16} color={Colors.textSecondary} />
+                            <Ionicons name="chevron-forward" size={16} color={Colors.textLight} />
                         </View>
                     </TouchableOpacity>
                 </View>
+
+                {/* AI Progress Insights (Main Screen) */}
+                {weeklyInsight?.aiProgress ? (
+                    <View style={{ marginHorizontal: 16, marginBottom: 20 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+                            <Ionicons name="sparkles" size={16} color={Colors.primary} style={{ marginRight: 6 }} />
+                            <Text style={{ fontSize: 16, fontWeight: '700', color: Colors.text }}>AI Progress Insights</Text>
+                        </View>
+
+                        {/* Top Row: Analysis & Score */}
+                        <View style={{ flexDirection: 'row', gap: 10, marginBottom: 10 }}>
+                            <View style={{ flex: 1.6, backgroundColor: '#F3E5F5', borderRadius: 16, padding: 12, justifyContent: 'space-between' }}>
+                                <ScrollView
+                                    style={{ maxHeight: 70 }}
+                                    nestedScrollEnabled={true}
+                                    showsVerticalScrollIndicator={true}
+                                >
+                                    <TouchableOpacity activeOpacity={0.8}>
+                                        <Text style={{ fontSize: 12, color: '#4A148C', lineHeight: 18 }}>
+                                            {weeklyInsight.aiProgress.analysis}
+                                        </Text>
+                                    </TouchableOpacity>
+                                </ScrollView>
+                                <Text style={{ fontSize: 8, color: '#aa00ff', alignSelf: 'flex-end', marginTop: 2, fontStyle: 'italic' }}>
+                                    Scroll for more ↕
+                                </Text>
+                                <View style={{ backgroundColor: '#fff', alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, marginTop: 4, flexDirection: 'row', alignItems: 'center' }}>
+                                    <Ionicons name="flash" size={8} color={Colors.primary} style={{ marginRight: 3 }} />
+                                    <Text style={{ fontSize: 9, fontWeight: '700', color: Colors.primary }}>AI ANALYSIS</Text>
+                                </View>
+                            </View>
+
+                            {/* Right: Health Score */}
+                            <View style={{ flex: 1, backgroundColor: '#E8F5E9', borderRadius: 16, padding: 10, alignItems: 'center', justifyContent: 'center' }}>
+                                <Ionicons name="heart" size={22} color={Colors.primary} style={{ marginBottom: 4 }} />
+                                <Text style={{ fontSize: 26, fontWeight: '800', color: '#1B5E20' }}>
+                                    {weeklyInsight.aiProgress.healthScore}
+                                </Text>
+                                <Text style={{ fontSize: 9, color: '#1B5E20', marginTop: 2 }}>Health Score</Text>
+                            </View>
+                        </View>
+
+                        {/* Tags Row */}
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+                            {weeklyInsight.aiProgress.tags.map((tag: string, i: number) => {
+                                const bgColors = ['#E8F5E9', '#E3F2FD', '#FFF3E0']; // Green, Blue, Orange
+                                const textColors = ['#1B5E20', '#0D47A1', '#E65100'];
+                                const icons = ['nutrition', 'water', 'trending-up'];
+                                return (
+                                    <View key={i} style={{ backgroundColor: bgColors[i % 3], borderRadius: 10, paddingVertical: 6, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start' }}>
+                                        <Ionicons name={icons[i % 3] as any} size={12} color={textColors[i % 3]} style={{ marginRight: 4 }} />
+                                        <Text style={{ fontSize: 10, fontWeight: '700', color: textColors[i % 3] }}>{tag}</Text>
+                                    </View>
+                                );
+                            })}
+                        </View>
+
+                        {/* Weekly Win */}
+                        <View style={{ backgroundColor: '#fff', borderRadius: 16, padding: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 5, elevation: 1, borderWidth: 1, borderColor: '#f0f0f0' }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                                <Text style={{ fontSize: 18, marginRight: 6 }}>🏆</Text>
+                                <Text style={{ fontSize: 14, fontWeight: '700', color: Colors.text }}>{weeklyInsight.aiProgress.weeklyWin.title}</Text>
+                            </View>
+                            <Text style={{ fontSize: 12, color: Colors.textSecondary, lineHeight: 18 }}>
+                                {weeklyInsight.aiProgress.weeklyWin.description}
+                            </Text>
+                        </View>
+                    </View>
+                ) : (
+                    <View style={{ marginHorizontal: 16, marginBottom: 20 }}>
+                        {loadingInsight ? (
+                            <View style={{ opacity: 0.7 }}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+                                    <Ionicons name="sparkles" size={16} color={Colors.textSecondary} style={{ marginRight: 6 }} />
+                                    <Text style={{ fontSize: 16, fontWeight: '700', color: Colors.textSecondary }}>Using AI to analyze...</Text>
+                                </View>
+                                {/* Skeleton Top Row */}
+                                <View style={{ flexDirection: 'row', gap: 10, marginBottom: 10 }}>
+                                    <View style={{ flex: 1.6, backgroundColor: '#f0f0f0', borderRadius: 16, height: 100 }} />
+                                    <View style={{ flex: 1, backgroundColor: '#f0f0f0', borderRadius: 16, height: 100 }} />
+                                </View>
+                                {/* Skeleton Tags Row */}
+                                <View style={{ flexDirection: 'row', gap: 6, marginBottom: 10 }}>
+                                    <View style={{ flex: 1, backgroundColor: '#f0f0f0', borderRadius: 10, height: 30 }} />
+                                    <View style={{ flex: 1, backgroundColor: '#f0f0f0', borderRadius: 10, height: 30 }} />
+                                    <View style={{ flex: 1, backgroundColor: '#f0f0f0', borderRadius: 10, height: 30 }} />
+                                </View>
+                                {/* Skeleton Win Card */}
+                                <View style={{ backgroundColor: '#f0f0f0', borderRadius: 16, height: 60, marginTop: 5 }} />
+                            </View>
+                        ) : (
+                            <View style={{ padding: 20, alignItems: 'center', marginBottom: 50 }}>
+                                <TouchableOpacity onPress={generateInsight} style={{ padding: 10 }}>
+                                    <Text style={{ color: Colors.primary, fontSize: 14 }}>Tap to retry AI Analysis</Text>
+                                </TouchableOpacity>
+                            </View>
+                        )}
+                    </View>
+                )}
+
+                {/* Weekly Calories Chart */}
+                <View style={[styles.card, { marginHorizontal: 16, marginBottom: 20, alignItems: 'flex-start', paddingBottom: 20 }]}>
+                    <Text style={[styles.cardTitle, { fontSize: 16, marginBottom: 16, width: '100%' }]}>Calories Burned (This Week)</Text>
+                    <BarChart
+                        data={{
+                            labels: DAY_LABELS,
+                            datasets: [
+                                {
+                                    data: weeklyCalories
+                                }
+                            ]
+                        }}
+                        width={Dimensions.get("window").width - 56} // Card width (Window - 32 margin - 24 padding)
+                        height={200}
+                        yAxisLabel=""
+                        yAxisSuffix=""
+                        chartConfig={{
+                            backgroundColor: "#fff",
+                            backgroundGradientFrom: "#fff",
+                            backgroundGradientTo: "#fff",
+                            decimalPlaces: 0,
+                            color: (opacity = 1) => Colors.primary,
+                            labelColor: (opacity = 1) => Colors.textSecondary,
+                            style: {
+                                borderRadius: 16
+                            },
+                            barPercentage: 0.6,
+                            fillShadowGradient: Colors.primary,
+                            fillShadowGradientOpacity: 1,
+                            propsForBackgroundLines: {
+                                strokeWidth: 0 // Remove background lines for cleaner look
+                            }
+                        }}
+                        style={{
+                            marginVertical: 8,
+                            borderRadius: 16,
+                            paddingRight: 0,
+                        }}
+                        showValuesOnTopOfBars
+                        fromZero
+                    />
+                </View>
+
+                {/* Weekly Energy Card */}
+                <View style={[styles.card, { marginHorizontal: 16, marginBottom: 20, alignItems: 'flex-start', paddingBottom: 20 }]}>
+                    <Text style={[styles.cardTitle, { fontSize: 16, marginBottom: 16, width: '100%' }]}>Weekly Energy</Text>
+
+                    {/* Summary Stats */}
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%', marginBottom: 20 }}>
+                        <View style={{ alignItems: 'center' }}>
+                            <Text style={{ fontSize: 12, color: Colors.textSecondary }}>Burned</Text>
+                            <Text style={{ fontSize: 18, fontWeight: '700', color: '#ff9500' }}>{energySummary.burned}</Text>
+                            <Text style={{ fontSize: 10, color: Colors.textLight }}>kcal</Text>
+                        </View>
+                        <View style={{ alignItems: 'center' }}>
+                            <Text style={{ fontSize: 12, color: Colors.textSecondary }}>Consumed</Text>
+                            <Text style={{ fontSize: 18, fontWeight: '700', color: '#4cd964' }}>{energySummary.consumed}</Text>
+                            <Text style={{ fontSize: 10, color: Colors.textLight }}>kcal</Text>
+                        </View>
+                        <View style={{ alignItems: 'center' }}>
+                            <Text style={{ fontSize: 12, color: Colors.textSecondary }}>Net</Text>
+                            <Text style={{ fontSize: 18, fontWeight: '700', color: Colors.text }}>{energySummary.net}</Text>
+                            <Text style={{ fontSize: 10, color: Colors.textLight }}>kcal</Text>
+                        </View>
+                    </View>
+
+                    <StackedBarChart
+                        data={{
+                            labels: DAY_LABELS,
+                            legend: [],
+                            data: weeklyEnergyData.length > 0 ? weeklyEnergyData : [[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]],
+                            barColors: ["#ff9500", "#4cd964"] // Burned (Orange), Consumed (Green)
+                        }}
+                        width={Dimensions.get("window").width - 56}
+                        height={220}
+                        yAxisLabel=""
+                        yAxisSuffix=""
+                        chartConfig={{
+                            backgroundColor: "#fff",
+                            backgroundGradientFrom: "#fff",
+                            backgroundGradientTo: "#fff",
+                            decimalPlaces: 0,
+                            color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+                            labelColor: (opacity = 1) => Colors.textSecondary,
+                            style: {
+                                borderRadius: 16
+                            },
+                            propsForBackgroundLines: {
+                                strokeWidth: 1,
+                                stroke: "#e3e3e3",
+                                strokeDasharray: "0",
+                            },
+                        }}
+                        hideLegend={true}
+                    />
+
+                    {/* Custom Legend */}
+                    <View style={{ flexDirection: 'row', justifyContent: 'center', width: '100%', marginTop: 10, gap: 20 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <View style={{ width: 12, height: 12, borderRadius: 3, backgroundColor: '#ff9500', marginRight: 6 }} />
+                            <Text style={{ fontSize: 12, color: Colors.textSecondary }}>Burned</Text>
+                        </View>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <View style={{ width: 12, height: 12, borderRadius: 3, backgroundColor: '#4cd964', marginRight: 6 }} />
+                            <Text style={{ fontSize: 12, color: Colors.textSecondary }}>Consumed</Text>
+                        </View>
+                    </View>
+                </View>
+
+                <View style={[styles.card, { marginHorizontal: 16, marginBottom: 20, alignItems: 'flex-start', paddingBottom: 20, zIndex: 10 }]}>
+                    <Text style={[styles.cardTitle, { fontSize: 16, marginBottom: 16, width: '100%' }]}>Water Intake (This Week)</Text>
+
+                    <LineChart
+                        data={{
+                            labels: DAY_LABELS,
+                            datasets: [
+                                {
+                                    data: weeklyWater.length > 0 ? weeklyWater : [0, 0, 0, 0, 0, 0, 0]
+                                }
+                            ]
+                        }}
+                        width={Dimensions.get("window").width - 56} // Card width
+                        height={220}
+                        yAxisLabel=""
+                        yAxisSuffix="L"
+                        yAxisInterval={1}
+                        chartConfig={{
+                            backgroundColor: "#fff",
+                            backgroundGradientFrom: "#fff",
+                            backgroundGradientTo: "#fff",
+                            decimalPlaces: 1, // optional, defaults to 2dp
+                            color: (opacity = 1) => `rgba(0, 191, 255, ${opacity})`, // Deep Blue
+                            labelColor: (opacity = 1) => Colors.textSecondary,
+                            style: {
+                                borderRadius: 16
+                            },
+                            propsForDots: {
+                                r: "4",
+                                strokeWidth: "2",
+                                stroke: "#00BFFF"
+                            }
+                        }}
+                        bezier
+                        style={{
+                            marginVertical: 8,
+                            borderRadius: 16,
+                            paddingRight: 0,
+                        }}
+                        fromZero
+                        renderDotContent={({ x, y, index, indexData }) => {
+                            const value = parseFloat(indexData.toString());
+                            if (value === 0) return null; // Don't show label for 0
+                            return (
+                                <View
+                                    key={index}
+                                    style={{
+                                        position: 'absolute',
+                                        top: y - 24, // Position above the dot
+                                        left: x - 20, // Center horizontally (approx)
+                                        width: 40,
+                                        alignItems: 'center'
+                                    }}
+                                >
+                                    <Text style={{ fontSize: 10, color: Colors.textSecondary, fontWeight: '600' }}>
+                                        {formatWaterValue(value)}
+                                    </Text>
+                                </View>
+                            );
+                        }}
+                    />
+                </View>
+
+
             </ScrollView>
 
             {/* Streak Modal */}
@@ -549,21 +883,46 @@ const styles = StyleSheet.create({
         lineHeight: 20,
     },
     aiSummary: {
-        fontSize: 12,
+        fontSize: 14,
+        color: Colors.textSecondary,
+        textAlign: 'center',
+        marginBottom: 20,
+        lineHeight: 20,
+    },
+    bentoGrid: {
+        marginBottom: 20,
+        gap: 10,
+    },
+    bentoRow: {
+        flexDirection: 'row',
+        gap: 10,
+    },
+    bentoCard: {
+        padding: 12,
+        borderRadius: 16,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    bentoLabel: {
+        fontSize: 10,
+        color: Colors.textSecondary,
+        marginTop: 4,
+        marginBottom: 2,
+        fontWeight: '600',
+    },
+    bentoValue: {
+        fontSize: 24,
+        fontWeight: '800',
         color: Colors.text,
-        lineHeight: 16,
-        textAlign: 'justify',
-        marginBottom: 10,
-        backgroundColor: '#F8F9FA',
-        padding: 10,
-        borderRadius: 12,
+        textAlign: 'center',
     },
     subHeading: {
-        fontSize: 14,
+        fontSize: 16,
         fontWeight: '700',
         color: Colors.text,
-        marginBottom: 8,
-        marginTop: 4,
+        width: '100%',
+        marginBottom: 10,
+        marginTop: 10,
     },
     highlightRow: {
         flexDirection: 'row',
@@ -585,9 +944,17 @@ const styles = StyleSheet.create({
         borderColor: '#EEE',
     },
     dailyStatCard: {
-        // ... (unused now?) Keep for safety or remove? 
-        // We are using tableRow now.
-        marginBottom: 8,
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        padding: 12,
+        marginBottom: 10,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+        elevation: 2,
+        borderWidth: 1,
+        borderColor: '#F0F0F0',
     },
     tableHeader: {
         flexDirection: 'row',
@@ -629,36 +996,33 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'baseline',
         justifyContent: 'center',
-        marginVertical: 20,
-        gap: 8,
-    },
-    weightInput: {
-        fontSize: 40,
-        fontWeight: '700',
-        color: Colors.text,
+        marginBottom: 20,
         borderBottomWidth: 2,
         borderBottomColor: Colors.primary,
         paddingBottom: 4,
-        textAlign: 'center',
+    },
+    weightInput: {
+        fontSize: 48,
+        fontWeight: '700',
+        color: Colors.primary,
         minWidth: 100,
+        textAlign: 'center',
     },
     weightInputUnit: {
-        fontSize: 20,
-        fontWeight: '600',
+        fontSize: 18,
         color: Colors.textSecondary,
+        marginLeft: 4,
     },
     saveButton: {
         backgroundColor: Colors.primary,
-        paddingHorizontal: 24,
-        paddingVertical: 12,
-        borderRadius: 25,
-        marginBottom: 16,
-        width: '100%',
+        paddingVertical: 14,
+        borderRadius: 12,
         alignItems: 'center',
+        width: '100%',
     },
     saveButtonText: {
         color: '#fff',
-        fontSize: 14,
-        fontWeight: '600',
+        fontSize: 16,
+        fontWeight: '700',
     },
 });

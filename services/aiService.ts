@@ -1,4 +1,6 @@
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import Groq from 'groq-sdk';
+import { db } from '../config/firebase';
 import { DailyLog } from './logService';
 
 const groq = new Groq({
@@ -9,6 +11,21 @@ const groq = new Groq({
 export interface WeeklyInsight {
     summary: string;
     highlights: string[];
+    bento: {
+        insightTag: string; // e.g. "On Track", "Needs Focus"
+        hydrationStatus: string; // e.g. "Great!", "Low"
+        bestWorkout: string; // e.g. "5km Run"
+        nutritionGrade: string; // "A", "B", "C"
+    };
+    aiProgress: {
+        healthScore: number;
+        analysis: string;
+        tags: string[];
+        weeklyWin: {
+            title: string;
+            description: string;
+        };
+    };
     stats: {
         date: string;
         foodCals: number;
@@ -22,8 +39,28 @@ export interface WeeklyInsight {
 }
 
 export const aiService = {
-    async generateWeeklyInsight(logs: DailyLog[]): Promise<WeeklyInsight> {
+    async generateWeeklyInsight(userId: string, logs: DailyLog[]): Promise<WeeklyInsight> {
         try {
+            // 1. Check for cached insight
+            const insightRef = doc(db, "users", userId, "insights", "latestWeekly");
+            const insightSnap = await getDoc(insightRef);
+
+            if (insightSnap.exists()) {
+                const data = insightSnap.data();
+                const generatedAt = new Date(data.generatedAt);
+                const now = new Date();
+                const diffHours = (now.getTime() - generatedAt.getTime()) / (1000 * 60 * 60);
+
+                // Check if strict 6 hours AND if the data structure is up to date (has weeklyWin)
+                if (diffHours < 6 && data.insight?.aiProgress?.weeklyWin) {
+                    console.log("Returning cached AI insight");
+                    return data.insight as WeeklyInsight;
+                }
+            }
+
+            // 2. Generate new insight if no cache or expired
+            console.log("Generating new AI insight...");
+
             // Prepare data for AI with calculated totals
             const logsData = logs.map(log => {
                 const activities = log.activities || [];
@@ -61,10 +98,40 @@ export const aiService = {
                         - dailySummary: Brief summary (max 6 words).
                         - dailySuggestion: Short tip (max 6 words).
 
+                        Also include "bento" grid summaries:
+                        - insightTag: 2-3 word overall status (e.g. "Crushing It", "Needs Consistency").
+                        - hydrationStatus: 1-2 word water status (e.g. "Well Hydrated", "Drink More").
+                        - bestWorkout: The single best workout name of the week (max 3 words).
+                        - nutritionGrade: A single letter grade (A, B, C, D) based on food quality/macros.
+
+                        Also include "aiProgress" for the new dashboard section:
+                        - healthScore: 0-100 score based on consistency and macros.
+                        - analysis: 2-3 sentences motivational analysis of weight/calories.
+                        - tags: Exactly 3 short, DATA-DRIVEN tags based on the week's logs (e.g., "High Protein", "Hydrated", "Deficit Hit", "7-Day Streak", "Beast Mode"). AVOID generic terms like "Newbie Gains" or "Foodie".
+                        - weeklyWin: { 
+                            "title": "This Week's Win", 
+                            "description": "A specific, data-driven sentence about their consistency or best stat. Example: 'You tracked your meals for 5 days straight and hit your protein goal 3 times.' or 'Your consistency is improving with 4 logged workouts this week.'" 
+                        }.
+
                         Return ONLY valid JSON:
                         {
                             "summary": "Monday: Good run. Tuesday: High protein...",
                             "highlights": ["..."],
+                            "bento": {
+                                "insightTag": "On Track",
+                                "hydrationStatus": "Good",
+                                "bestWorkout": "5km Run",
+                                "nutritionGrade": "B"
+                            },
+                            "aiProgress": {
+                                "healthScore": 85,
+                                "analysis": "You've maintained a steady deficit...",
+                                "tags": ["Protein King", "Hydrator", "Steady"],
+                                "weeklyWin": {
+                                    "title": "Consistency Champ",
+                                    "description": "You logged for 5 days straight!"
+                                }
+                            },
                             "stats": [
                                 { 
                                     "date": "YYYY-MM-DD", 
@@ -91,7 +158,15 @@ export const aiService = {
             const content = completion.choices[0]?.message?.content;
             if (!content) throw new Error('No analysis generated');
 
-            return JSON.parse(content);
+            const parsedInsight = JSON.parse(content);
+
+            // 3. Save to cache
+            await setDoc(insightRef, {
+                insight: parsedInsight,
+                generatedAt: new Date().toISOString()
+            });
+
+            return parsedInsight;
         } catch (error) {
             console.error('Error generating insight:', error);
             throw error;
