@@ -8,6 +8,7 @@ import { useWarmUpBrowser } from '../../hooks/useWarmUpBrowser';
 
 import { AuthButton } from '../../components/AuthButton';
 import { AuthInput } from '../../components/AuthInput';
+import { Colors } from '../../constants/Colors';
 import { userService } from '../../services/userService';
 
 export default function SignUpScreen() {
@@ -115,7 +116,7 @@ export default function SignUpScreen() {
                     )}
                     {pendingVerification && (
                         <>
-                            <Ionicons name="mail-open-outline" size={64} color="#6a11cb" style={{ marginBottom: 20 }} />
+                            <Ionicons name="mail-open-outline" size={64} color={Colors.primary} style={{ marginBottom: 20 }} />
                             <Text style={styles.title}>Verify Email</Text>
                             <Text style={styles.subtitle}>Enter the code sent to {email}</Text>
                         </>
@@ -177,7 +178,7 @@ export default function SignUpScreen() {
                             title="Continue with Google"
                             onPress={onGoogleSignUpPress}
                             variant="google"
-                            icon={<Ionicons name="logo-google" size={20} color="#333" style={{ marginRight: 8 }} />}
+                            icon={<Ionicons name="logo-google" size={20} color={Colors.google} style={{ marginRight: 8 }} />}
                         />
 
                         <View style={styles.footer}>
@@ -213,7 +214,7 @@ export default function SignUpScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#ffffff',
+        backgroundColor: Colors.background,
     },
     scrollContent: {
         flexGrow: 1,
@@ -234,12 +235,12 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 28,
         fontWeight: '700',
-        color: '#1a1a1a',
+        color: Colors.text,
         marginBottom: 8,
     },
     subtitle: {
         fontSize: 16,
-        color: '#666',
+        color: Colors.textSecondary,
         textAlign: 'center',
     },
     form: {
@@ -254,11 +255,11 @@ const styles = StyleSheet.create({
         marginTop: 24,
     },
     footerText: {
-        color: '#666',
+        color: Colors.textSecondary,
         fontSize: 14,
     },
     linkText: {
-        color: '#6a11cb',
+        color: Colors.primary,
         fontSize: 14,
         fontWeight: '700',
     },
@@ -270,11 +271,11 @@ const styles = StyleSheet.create({
     dividerLine: {
         flex: 1,
         height: 1,
-        backgroundColor: '#eee',
+        backgroundColor: Colors.border,
     },
     dividerText: {
         marginHorizontal: 16,
-        color: '#999',
+        color: Colors.textLight,
         fontSize: 14,
     },
 });

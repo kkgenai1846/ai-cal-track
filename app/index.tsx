@@ -1,24 +1,38 @@
 import { useAuth, useUser } from '@clerk/clerk-expo';
+import { useRouter } from 'expo-router';
 import { useEffect } from 'react';
 import { ActivityIndicator, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 import { AuthButton } from '../components/AuthButton';
+import { Colors } from '../constants/Colors';
 import { userService } from '../services/userService';
 
 export default function HomeScreen() {
   const { signOut, isSignedIn, isLoaded } = useAuth();
   const { user } = useUser();
 
+  const router = useRouter();
+
   useEffect(() => {
-    if (isLoaded && isSignedIn && user) {
-      console.log("Syncing user to Firestore...", user.id);
-      userService.syncUser(user);
-    }
+    const checkUserStatus = async () => {
+      if (isLoaded && isSignedIn && user) {
+        console.log("Syncing user to Firestore...", user.id);
+        const userData = await userService.syncUser(user);
+
+        if (userData && !userData.onboardingCompleted) {
+          console.log("Redirecting to onboarding...");
+          // @ts-ignore
+          router.replace('/onboarding');
+        }
+      }
+    };
+
+    checkUserStatus();
   }, [isLoaded, isSignedIn, user]);
 
   if (!isLoaded) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color="#6a11cb" />
+        <ActivityIndicator size="large" color={Colors.primary} />
       </View>
     );
   }
@@ -27,7 +41,7 @@ export default function HomeScreen() {
     // Let RootLayout handle redirection
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color="#6a11cb" />
+        <ActivityIndicator size="large" color={Colors.primary} />
       </View>
     );
   }
@@ -46,8 +60,8 @@ export default function HomeScreen() {
         <AuthButton
           title="Sign Out"
           onPress={() => signOut()}
-          style={{ marginTop: 40, backgroundColor: '#ff4d4f' }}
-          textStyle={{ color: '#fff' }}
+          style={{ marginTop: 40, backgroundColor: Colors.error }}
+          textStyle={{ color: Colors.textWhite }}
         />
       </View>
     </SafeAreaView>
@@ -57,7 +71,7 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: Colors.background,
   },
   content: {
     padding: 24,
@@ -66,31 +80,31 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: '600',
-    color: '#666',
+    color: Colors.textSecondary,
     marginTop: 20,
   },
   subtitle: {
     fontSize: 32,
     fontWeight: '700',
-    color: '#1a1a1a',
+    color: Colors.text,
     marginBottom: 40,
   },
   card: {
-    backgroundColor: '#f8f9fa',
+    backgroundColor: Colors.surface,
     borderRadius: 16,
     padding: 20,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: '#eee',
+    borderColor: Colors.border,
   },
   cardTitle: {
     fontSize: 18,
     fontWeight: '600',
     marginBottom: 8,
-    color: '#333',
+    color: Colors.google,
   },
   cardText: {
-    color: '#666',
+    color: Colors.textSecondary,
     lineHeight: 22,
   },
 });
