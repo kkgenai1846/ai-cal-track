@@ -1,4 +1,4 @@
-import { model } from "../config/AiModel";
+import { groq } from "../config/AiModel";
 import { UserData } from "./userService";
 
 export interface FitnessPlan {
@@ -37,14 +37,16 @@ export const aiService = {
         }
       `;
 
-            const result = await model.generateContent(prompt);
-            const response = await result.response;
-            const text = response.text();
+            const completion = await groq.chat.completions.create({
+                messages: [{ role: "user", content: prompt }],
+                model: "llama-3.3-70b-versatile", // Updated to supported model
+                response_format: { type: "json_object" }, // helpful if supported, otherwise just parse string
+            });
 
+            const text = completion.choices[0]?.message?.content || "{}";
             console.log("AI Raw Response:", text);
 
             const jsonString = text.replace(/```json/g, '').replace(/```/g, '').trim();
-
             const plan: FitnessPlan = JSON.parse(jsonString);
             return plan;
 
