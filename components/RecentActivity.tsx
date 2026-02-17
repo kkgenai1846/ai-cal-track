@@ -257,15 +257,7 @@ export function RecentActivity({ activities, onDelete }: RecentActivityProps) {
 
 const styles = StyleSheet.create({
     card: {
-        backgroundColor: "white",
-        borderRadius: 20,
-        padding: 16,
         marginVertical: 8,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 10,
-        elevation: 3,
     },
     header: {
         flexDirection: "row",
