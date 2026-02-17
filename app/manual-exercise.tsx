@@ -39,7 +39,10 @@ export default function ManualExerciseScreen() {
         setIsLogging(true);
         try {
             const today = new Date().toISOString().split('T')[0];
-            const currentTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const currentTime = new Date().toLocaleTimeString([], {
+                hour: 'numeric',
+                minute: '2-digit'
+            });
 
             const newActivity: ActivityLog = {
                 id: Date.now().toString(),

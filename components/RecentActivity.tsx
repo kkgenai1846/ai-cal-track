@@ -5,7 +5,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 type ActivityItem = {
     id: string;
-    type: "meal" | "water" | "exercise";
+    type: "meal" | "water" | "exercise" | "food";
     name: string;
     calories?: number;
     time: string;
@@ -15,6 +15,7 @@ type ActivityItem = {
     waterAmount?: number;
     intensity?: string;
     duration?: number;
+    servingSize?: string;
 };
 
 type RecentActivityProps = {
@@ -39,6 +40,8 @@ export function RecentActivity({ activities, onDelete }: RecentActivityProps) {
 
     const getActivityIcon = (type: ActivityItem["type"]) => {
         switch (type) {
+            case "food":
+                return "food-apple";
             case "meal":
                 return "food-apple";
             case "water":
@@ -50,8 +53,106 @@ export function RecentActivity({ activities, onDelete }: RecentActivityProps) {
         }
     };
 
+    // Get food-specific icon based on food name
+    const getFoodIcon = (foodName: string): string => {
+        const nameLower = foodName.toLowerCase();
+
+        // Common foods with specific icons
+        if (nameLower.includes('egg')) return 'egg';
+        if (nameLower.includes('rice')) return 'rice';
+        if (nameLower.includes('chicken')) return 'food-drumstick';
+        if (nameLower.includes('meat') || nameLower.includes('beef') || nameLower.includes('steak')) return 'food-steak';
+        if (nameLower.includes('fish') || nameLower.includes('salmon') || nameLower.includes('tuna')) return 'fish';
+        if (nameLower.includes('apple')) return 'apple';
+        if (nameLower.includes('banana')) return 'fruit-cherries';
+        if (nameLower.includes('bread') || nameLower.includes('toast')) return 'bread-slice';
+        if (nameLower.includes('milk') || nameLower.includes('dairy')) return 'cup';
+        if (nameLower.includes('cheese')) return 'cheese';
+        if (nameLower.includes('pasta') || nameLower.includes('noodle')) return 'noodles';
+        if (nameLower.includes('pizza')) return 'pizza';
+        if (nameLower.includes('burger') || nameLower.includes('hamburger')) return 'hamburger';
+        if (nameLower.includes('salad') || nameLower.includes('vegetable') || nameLower.includes('lettuce')) return 'food-variant';
+        if (nameLower.includes('coffee') || nameLower.includes('tea')) return 'coffee';
+        if (nameLower.includes('cake') || nameLower.includes('dessert') || nameLower.includes('cookie')) return 'cake';
+
+        // Default to apple if no match
+        return 'food-apple';
+    };
+
     const renderActivityItem = (item: ActivityItem) => {
         const isExercise = item.type === "exercise";
+        const isFood = item.type === "food";
+
+        // Enhanced Food Card
+        if (isFood) {
+            const foodIcon = getFoodIcon(item.name);
+
+            return (
+                <View key={item.id} style={styles.foodCard}>
+                    <View style={styles.foodIconContainer}>
+                        <MaterialCommunityIcons
+                            name={foodIcon as any}
+                            size={28}
+                            color="#FF6B6B"
+                        />
+                    </View>
+
+                    <View style={styles.foodDetails}>
+                        <View style={styles.foodHeader}>
+                            <Text style={styles.foodName} numberOfLines={1}>{item.name}</Text>
+                            <Text style={styles.activityTime}>{item.time}</Text>
+                        </View>
+
+                        <View style={styles.foodMetricsRow}>
+                            {/* Serving Size */}
+                            {item.servingSize && (
+                                <View style={styles.servingBadge}>
+                                    <Ionicons name="restaurant-outline" size={12} color="#666" />
+                                    <Text style={styles.servingText} numberOfLines={1}>{item.servingSize}</Text>
+                                </View>
+                            )}
+
+                            {/* Calories */}
+                            <View style={styles.caloriesBadge}>
+                                <MaterialCommunityIcons name="fire" size={14} color="#FF6B6B" />
+                                <Text style={styles.foodCalories} numberOfLines={1}>{item.calories} cal</Text>
+                            </View>
+                        </View>
+
+                        {/* Macros Row */}
+                        {(item.protein !== undefined || item.carbs !== undefined || item.fat !== undefined) && (
+                            <View style={styles.macrosGrid}>
+                                {item.protein !== undefined && (
+                                    <View style={styles.macroChip}>
+                                        <Text style={styles.macroLabel}>P:</Text>
+                                        <Text style={styles.macroValue} numberOfLines={1}>{item.protein}g</Text>
+                                    </View>
+                                )}
+                                {item.carbs !== undefined && (
+                                    <View style={styles.macroChip}>
+                                        <Text style={styles.macroLabel}>C:</Text>
+                                        <Text style={styles.macroValue} numberOfLines={1}>{item.carbs}g</Text>
+                                    </View>
+                                )}
+                                {item.fat !== undefined && (
+                                    <View style={styles.macroChip}>
+                                        <Text style={styles.macroLabel}>F:</Text>
+                                        <Text style={styles.macroValue} numberOfLines={1}>{item.fat}g</Text>
+                                    </View>
+                                )}
+                            </View>
+                        )}
+                    </View>
+
+                    <TouchableOpacity
+                        onPress={() => onDelete?.(item)}
+                        style={styles.deleteButtonOverlay}
+                    >
+                        <Ionicons name="trash-outline" size={16} color="#FF6B6B" />
+                    </TouchableOpacity>
+                </View>
+            );
+        }
 
         if (isExercise) {
             return (
@@ -332,6 +433,104 @@ const styles = StyleSheet.create({
         top: 8,
         right: 8,
         padding: 4,
+    },
+    foodCard: {
+        flexDirection: "row",
+        backgroundColor: "#FFFAF5",
+        borderRadius: 16,
+        padding: 12,
+        marginBottom: 12,
+        borderWidth: 1,
+        borderColor: "#FFE5D9",
+        position: 'relative',
+    },
+    foodIconContainer: {
+        width: 56,
+        height: 56,
+        borderRadius: 12,
+        backgroundColor: "#FFE5E5",
+        alignItems: "center",
+        justifyContent: "center",
+        marginRight: 12,
+    },
+    foodDetails: {
+        flex: 1,
+        justifyContent: "center",
+        gap: 4,
+        paddingRight: 20,
+    },
+    foodHeader: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        gap: 8,
+    },
+    foodName: {
+        fontSize: 14,
+        fontWeight: "700",
+        color: Colors.text,
+        flex: 1,
+    },
+    foodMetricsRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
+        marginTop: 2,
+    },
+    servingBadge: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 4,
+        backgroundColor: "#F5F5F5",
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 8,
+        maxWidth: 120,
+    },
+    servingText: {
+        fontSize: 11,
+        fontWeight: "600",
+        color: "#666",
+        flexShrink: 1,
+    },
+    caloriesBadge: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 4,
+        flexShrink: 1,
+    },
+    foodCalories: {
+        fontSize: 13,
+        fontWeight: "600",
+        color: "#FF6B6B",
+        flexShrink: 1,
+    },
+    macrosGrid: {
+        flexDirection: "row",
+        gap: 6,
+        marginTop: 4,
+        flexWrap: "wrap",
+    },
+    macroChip: {
+        flexDirection: "row",
+        alignItems: "center",
+        backgroundColor: "#F0F9FF",
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        borderRadius: 8,
+        gap: 2,
+        maxWidth: 80,
+    },
+    macroLabel: {
+        fontSize: 10,
+        fontWeight: "600",
+        color: Colors.textSecondary,
+    },
+    macroValue: {
+        fontSize: 10,
+        fontWeight: "700",
+        color: Colors.text,
+        flexShrink: 1,
     },
 });
 

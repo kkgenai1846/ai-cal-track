@@ -114,7 +114,7 @@ export default function TabLayout() {
                 }}
                 onFoodDatabase={() => {
                     setIsQuickAddVisible(false);
-                    Alert.alert('Food Database', 'Feature coming soon!');
+                    router.push('/food-database');
                 }}
                 onScanFood={() => {
                     setIsQuickAddVisible(false);

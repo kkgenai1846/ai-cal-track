@@ -68,7 +68,9 @@ export default function ExerciseDetailsScreen() {
             params: {
                 calories: calculatedCals,
                 type: exerciseId,
-                name: exerciseTitle
+                name: exerciseTitle,
+                duration: finalDuration.toString(),
+                intensity: intensity
             }
         });
     };

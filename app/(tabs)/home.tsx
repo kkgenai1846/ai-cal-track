@@ -57,7 +57,10 @@ export default function HomeScreen() {
 
     const performWaterUpdate = async (amount: number) => {
         if (!user) return;
-        const currentTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const currentTime = new Date().toLocaleTimeString([], {
+            hour: 'numeric',
+            minute: '2-digit'
+        });
 
         const newActivity: ActivityLog = {
             id: Date.now().toString(),
@@ -215,14 +218,12 @@ export default function HomeScreen() {
     return (
         <SafeAreaView style={styles.container}>
             <HomeHeader />
-            <View style={styles.dateStripContainer}>
-                <DateStrip onDateSelect={handleDateSelect} />
-            </View>
             <ScrollView
                 style={styles.content}
                 contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
             >
+                <DateStrip onDateSelect={handleDateSelect} />
                 <CaloriesCard
                     remainingCalories={Math.round(remainingCalories)}
                     totalCalories={dailyCaloriesGoal}
@@ -278,9 +279,6 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: Colors.background,
         paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
-    },
-    dateStripContainer: {
-        paddingVertical: 10,
     },
     content: {
         flex: 1,

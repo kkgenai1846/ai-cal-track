@@ -43,7 +43,10 @@ export default function LogWaterScreen() {
             return;
         }
 
-        const currentTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const currentTime = new Date().toLocaleTimeString([], {
+            hour: 'numeric',
+            minute: '2-digit'
+        });
         const waterLiters = waterMl / 1000;
 
         const newActivity: ActivityLog = {

@@ -3,16 +3,17 @@ import { db } from '../config/firebase';
 
 export interface ActivityLog {
     id: string;
-    type: "meal" | "water" | "exercise";
+    type: 'meal' | 'exercise' | 'water' | 'food';
     name: string;
-    calories?: number;
-    time: string;
+    calories: number;
     protein?: number;
     carbs?: number;
     fat?: number;
-    waterAmount?: number;
-    intensity?: string;
+    waterAmount?: number; // in liters
+    time: string;
     duration?: number;
+    intensity?: string;
+    servingSize?: string;
 }
 
 export interface DailyLog {
@@ -72,12 +73,23 @@ export const logService = {
             if (data.water !== undefined) updateData.water = increment(data.water);
 
             if (newActivity) {
-                updateData.activities = arrayUnion(newActivity);
+                // Remove undefined fields to prevent Firebase errors
+                const cleanedActivity = Object.fromEntries(
+                    Object.entries(newActivity).filter(([_, value]) => value !== undefined)
+                ) as ActivityLog;
+                updateData.activities = arrayUnion(cleanedActivity);
             }
 
             if (docSnap.exists()) {
                 await updateDoc(docRef, updateData);
             } else {
+                // Clean activity for new document as well
+                const activities = newActivity
+                    ? [Object.fromEntries(
+                        Object.entries(newActivity).filter(([_, value]) => value !== undefined)
+                    ) as ActivityLog]
+                    : [];
+
                 await setDoc(docRef, {
                     date,
                     calories: data.calories || 0,
@@ -85,7 +97,7 @@ export const logService = {
                     carbs: data.carbs || 0,
                     fat: data.fat || 0,
                     water: data.water || 0,
-                    activities: newActivity ? [newActivity] : [],
+                    activities: activities,
                     createdAt: new Date(),
                     updatedAt: new Date()
                 });
