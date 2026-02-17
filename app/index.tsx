@@ -1,8 +1,7 @@
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { useRouter } from 'expo-router';
 import { useEffect } from 'react';
-import { ActivityIndicator, SafeAreaView, StyleSheet, Text, View } from 'react-native';
-import { AuthButton } from '../components/AuthButton';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { Colors } from '../constants/Colors';
 import { userService } from '../services/userService';
 
@@ -22,6 +21,10 @@ export default function HomeScreen() {
           console.log("Redirecting to onboarding...");
           // @ts-ignore
           router.replace('/onboarding');
+        } else if (userData && userData.onboardingCompleted) {
+          console.log("Redirecting to main tabs...");
+          // @ts-ignore
+          router.replace('/(tabs)/home');
         }
       }
     };
@@ -47,24 +50,10 @@ export default function HomeScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
-        <Text style={styles.title}>Welcome back,</Text>
-        <Text style={styles.subtitle}>{user?.firstName || 'User'}!</Text>
-
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Your Progress</Text>
-          <Text style={styles.cardText}>No data yet. Start tracking your calories!</Text>
-        </View>
-
-        <AuthButton
-          title="Sign Out"
-          onPress={() => signOut()}
-          style={{ marginTop: 40, backgroundColor: Colors.error }}
-          textStyle={{ color: Colors.textWhite }}
-        />
-      </View>
-    </SafeAreaView>
+    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background }}>
+      <ActivityIndicator size="large" color={Colors.primary} />
+      <Text style={{ marginTop: 20, color: Colors.textSecondary }}>Loading your profile...</Text>
+    </View>
   );
 }
 
