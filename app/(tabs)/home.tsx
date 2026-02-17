@@ -1,8 +1,7 @@
 import { useUser } from '@clerk/clerk-expo';
-import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, View } from 'react-native';
 import { CaloriesCard } from '../../components/CaloriesCard';
 import DateStrip from '../../components/DateStrip';
 import EditGoalsModal from '../../components/EditGoalsModal';
@@ -264,12 +263,8 @@ export default function HomeScreen() {
                 />
 
                 {/* Placeholder for future content */}
-                <View style={{ height: 100 }} />
+                <View style={{ height: 20 }} />
             </ScrollView>
-
-            <TouchableOpacity style={styles.fab} onPress={handleAddWater}>
-                <Ionicons name="add" size={30} color={Colors.primary} />
-            </TouchableOpacity>
         </SafeAreaView>
     );
 }
@@ -285,24 +280,6 @@ const styles = StyleSheet.create({
         paddingHorizontal: 24,
     },
     scrollContent: {
-        paddingBottom: 80, // Increased to account for FAB height + safe area
-    },
-    fab: {
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        backgroundColor: 'white',
-        height: 56,
-        paddingBottom: Platform.OS === 'ios' ? 34 : 0, // Safe area for iOS
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderTopWidth: 1,
-        borderTopColor: '#E0E0E0',
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: -2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 3,
-        elevation: 8,
+        paddingBottom: Platform.OS === 'ios' ? 90 : 70, // Account for tab bar height + bottom gap
     },
 });
