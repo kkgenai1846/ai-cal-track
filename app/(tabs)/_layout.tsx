@@ -1,7 +1,9 @@
+import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { Tabs, useRouter } from 'expo-router';
 import { BarChart2, Home, Plus, User } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { Alert, Dimensions, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Alert, Dimensions, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { QuickAddModal } from '../../components/QuickAddModal';
 import { Colors } from '../../constants/Colors';
 
@@ -35,6 +37,54 @@ const CustomTabBarButton = ({ children, onPress }: { children: React.ReactNode; 
 export default function TabLayout() {
     const router = useRouter();
     const [isQuickAddVisible, setIsQuickAddVisible] = useState(false);
+    const [showImageSourceDialog, setShowImageSourceDialog] = useState(false);
+
+    const handleGalleryPick = async () => {
+        setShowImageSourceDialog(false);
+
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+            Alert.alert('Permission Denied', 'We need permission to access your photos.');
+            return;
+        }
+
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [4, 3],
+            quality: 0.8,
+        });
+
+        if (!result.canceled && result.assets[0]) {
+            router.push({
+                pathname: '/food-analysis',
+                params: { imageUri: result.assets[0].uri }
+            });
+        }
+    };
+
+    const handleCameraCapture = async () => {
+        setShowImageSourceDialog(false);
+
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== 'granted') {
+            Alert.alert('Permission Denied', 'We need permission to access your camera.');
+            return;
+        }
+
+        const result = await ImagePicker.launchCameraAsync({
+            allowsEditing: true,
+            aspect: [4, 3],
+            quality: 0.8,
+        });
+
+        if (!result.canceled && result.assets[0]) {
+            router.push({
+                pathname: '/food-analysis',
+                params: { imageUri: result.assets[0].uri }
+            });
+        }
+    };
 
     return (
         <>
@@ -118,9 +168,50 @@ export default function TabLayout() {
                 }}
                 onScanFood={() => {
                     setIsQuickAddVisible(false);
-                    Alert.alert('Scan Food', 'Premium feature - Upgrade to unlock!');
+                    setShowImageSourceDialog(true);
                 }}
             />
+
+            {/* Image Source Dialog */}
+            <Modal
+                visible={showImageSourceDialog}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => setShowImageSourceDialog(false)}
+            >
+                <TouchableOpacity
+                    style={styles.modalOverlay}
+                    activeOpacity={1}
+                    onPress={() => setShowImageSourceDialog(false)}
+                >
+                    <View style={styles.modalContent}>
+                        <Text style={styles.modalTitle}>Choose Image Source</Text>
+
+                        <TouchableOpacity
+                            style={styles.modalOption}
+                            onPress={handleGalleryPick}
+                        >
+                            <Ionicons name="images" size={24} color={Colors.primary} />
+                            <Text style={styles.modalOptionText}>Gallery</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={styles.modalOption}
+                            onPress={handleCameraCapture}
+                        >
+                            <Ionicons name="camera" size={24} color={Colors.primary} />
+                            <Text style={styles.modalOptionText}>Camera</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={styles.modalCancel}
+                            onPress={() => setShowImageSourceDialog(false)}
+                        >
+                            <Text style={styles.modalCancelText}>Cancel</Text>
+                        </TouchableOpacity>
+                    </View>
+                </TouchableOpacity>
+            </Modal>
         </>
     );
 }
@@ -135,5 +226,49 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.1,
         shadowRadius: 4,
         elevation: 5,
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    modalContent: {
+        backgroundColor: '#fff',
+        borderRadius: 20,
+        padding: 24,
+        width: '85%',
+        maxWidth: 400,
+    },
+    modalTitle: {
+        fontSize: 20,
+        fontWeight: '700',
+        color: Colors.text,
+        marginBottom: 20,
+        textAlign: 'center',
+    },
+    modalOption: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 16,
+        borderRadius: 12,
+        backgroundColor: '#F9F9F9',
+        marginBottom: 12,
+        gap: 12,
+    },
+    modalOptionText: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: Colors.text,
+    },
+    modalCancel: {
+        paddingVertical: 12,
+        alignItems: 'center',
+        marginTop: 8,
+    },
+    modalCancelText: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: Colors.textSecondary,
     },
 });

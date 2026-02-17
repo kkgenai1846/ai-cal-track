@@ -1,8 +1,9 @@
 import { useUser } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Platform, SafeAreaView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Modal, Platform, SafeAreaView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../constants/Colors';
 import { ActivityLog, logService } from '../services/logService';
 
@@ -32,8 +33,10 @@ export default function LogFoodScreen() {
     const initialQuantity = extractQuantity(initialServingSize);
 
     // Editable state
+    const [editableFoodName, setEditableFoodName] = useState(foodName);
     const [servingQuantity, setServingQuantity] = useState(initialQuantity);
     const [servingSize, setServingSize] = useState(initialServingSize);
+    const [showImageSourceDialog, setShowImageSourceDialog] = useState(false);
 
     // Calculated nutrition values based on serving quantity
     const calories = (baseCalories * servingQuantity).toFixed(0);
@@ -50,6 +53,57 @@ export default function LogFoodScreen() {
         // Update the serving text to reflect new quantity
         const baseServing = initialServingSize.replace(/^\d+\.?\d*\s*/, '');
         setServingSize(`${newQuantity} ${baseServing}`);
+    };
+
+    const handleScanFood = () => {
+        setShowImageSourceDialog(true);
+    };
+
+    const handleGalleryPick = async () => {
+        setShowImageSourceDialog(false);
+
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+            Alert.alert('Permission Denied', 'We need permission to access your photos.');
+            return;
+        }
+
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [4, 3],
+            quality: 0.8,
+        });
+
+        if (!result.canceled && result.assets[0]) {
+            router.push({
+                pathname: '/food-analysis',
+                params: { imageUri: result.assets[0].uri }
+            });
+        }
+    };
+
+    const handleCameraCapture = async () => {
+        setShowImageSourceDialog(false);
+
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== 'granted') {
+            Alert.alert('Permission Denied', 'We need permission to access your camera.');
+            return;
+        }
+
+        const result = await ImagePicker.launchCameraAsync({
+            allowsEditing: true,
+            aspect: [4, 3],
+            quality: 0.8,
+        });
+
+        if (!result.canceled && result.assets[0]) {
+            router.push({
+                pathname: '/food-analysis',
+                params: { imageUri: result.assets[0].uri }
+            });
+        }
     };
 
     const handleLogFood = async () => {
@@ -76,7 +130,7 @@ export default function LogFoodScreen() {
         const newActivity: ActivityLog = {
             id: Date.now().toString(),
             type: "food",
-            name: foodName,
+            name: editableFoodName,
             calories: caloriesNum,
             protein: proteinNum,
             carbs: carbsNum,
@@ -97,7 +151,7 @@ export default function LogFoodScreen() {
             newActivity
         );
 
-        Alert.alert("Success", `Logged ${foodName}!`, [
+        Alert.alert("Success", `Logged ${editableFoodName}!`, [
             {
                 text: "OK",
                 onPress: () => router.push('/(tabs)/home')
@@ -117,8 +171,17 @@ export default function LogFoodScreen() {
             </View>
 
             <View style={styles.content}>
-                {/* Food Name */}
-                <Text style={styles.foodName}>{foodName}</Text>
+                {/* Food Name - Editable */}
+                <View style={styles.foodNameContainer}>
+                    <TextInput
+                        style={styles.foodNameInput}
+                        value={editableFoodName}
+                        onChangeText={setEditableFoodName}
+                        placeholder="Food name"
+                        placeholderTextColor={Colors.textLight}
+                    />
+                    <Ionicons name="pencil" size={20} color={Colors.textSecondary} style={styles.editIcon} />
+                </View>
 
                 {/* Serving Size with Quantity Controls */}
                 <View style={styles.servingCard}>
@@ -220,12 +283,61 @@ export default function LogFoodScreen() {
                 </View>
             </View>
 
-            {/* Log Button */}
             <View style={styles.bottomContainer}>
-                <TouchableOpacity style={styles.logButton} onPress={handleLogFood}>
-                    <Text style={styles.logButtonText}>Log Food</Text>
+                {/* Action Buttons */}
+                <TouchableOpacity
+                    style={[styles.button, styles.scanButton]}
+                    onPress={handleScanFood}
+                >
+                    <Ionicons name="camera" size={20} color={Colors.primary} />
+                    <Text style={[styles.buttonText, styles.scanButtonText]}>Scan Food</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.button} onPress={handleLogFood}>
+                    <Text style={styles.buttonText}>Log Food</Text>
                 </TouchableOpacity>
             </View>
+
+            {/* Image Source Dialog */}
+            <Modal
+                visible={showImageSourceDialog}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => setShowImageSourceDialog(false)}
+            >
+                <TouchableOpacity
+                    style={styles.modalOverlay}
+                    activeOpacity={1}
+                    onPress={() => setShowImageSourceDialog(false)}
+                >
+                    <View style={styles.modalContent}>
+                        <Text style={styles.modalTitle}>Choose Image Source</Text>
+
+                        <TouchableOpacity
+                            style={styles.modalOption}
+                            onPress={handleGalleryPick}
+                        >
+                            <Ionicons name="images" size={24} color={Colors.primary} />
+                            <Text style={styles.modalOptionText}>Gallery</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={styles.modalOption}
+                            onPress={handleCameraCapture}
+                        >
+                            <Ionicons name="camera" size={24} color={Colors.primary} />
+                            <Text style={styles.modalOptionText}>Camera</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={styles.modalCancel}
+                            onPress={() => setShowImageSourceDialog(false)}
+                        >
+                            <Text style={styles.modalCancelText}>Cancel</Text>
+                        </TouchableOpacity>
+                    </View>
+                </TouchableOpacity>
+            </Modal>
         </SafeAreaView>
     );
 }
@@ -260,6 +372,33 @@ const styles = StyleSheet.create({
     content: {
         flex: 1,
         padding: 20,
+    },
+    foodNameContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'white',
+        borderRadius: 12,
+        paddingHorizontal: 14,
+        paddingVertical: 6,
+        marginBottom: 16,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.04,
+        shadowRadius: 2,
+        elevation: 1,
+        borderWidth: 1,
+        borderColor: '#F0F0F0',
+    },
+    foodNameInput: {
+        flex: 1,
+        fontSize: 22,
+        fontWeight: '700',
+        color: Colors.text,
+        paddingVertical: 6,
+    },
+    editIcon: {
+        marginLeft: 8,
+        opacity: 0.4,
     },
     foodName: {
         fontSize: 32,
@@ -421,8 +560,75 @@ const styles = StyleSheet.create({
         elevation: 4,
     },
     logButtonText: {
-        color: 'white',
-        fontSize: 18,
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '700',
+    },
+    button: {
+        backgroundColor: Colors.primary,
+        paddingVertical: 14,
+        borderRadius: 12,
+        alignItems: 'center',
+        flexDirection: 'row',
+        justifyContent: 'center',
+        gap: 8,
+        marginBottom: 12,
+    },
+    scanButton: {
+        backgroundColor: '#F5F5F5',
+        borderWidth: 2,
+        borderColor: Colors.primary,
+    },
+    buttonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '700',
+    },
+    scanButtonText: {
+        color: Colors.primary,
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    modalContent: {
+        backgroundColor: '#fff',
+        borderRadius: 20,
+        padding: 24,
+        width: '85%',
+        maxWidth: 400,
+    },
+    modalTitle: {
+        fontSize: 20,
+        fontWeight: '700',
+        color: Colors.text,
+        marginBottom: 20,
+        textAlign: 'center',
+    },
+    modalOption: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 16,
+        borderRadius: 12,
+        backgroundColor: '#F9F9F9',
+        marginBottom: 12,
+        gap: 12,
+    },
+    modalOptionText: {
+        fontSize: 16,
         fontWeight: '600',
+        color: Colors.text,
+    },
+    modalCancel: {
+        paddingVertical: 12,
+        alignItems: 'center',
+        marginTop: 8,
+    },
+    modalCancelText: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: Colors.textSecondary,
     },
 });

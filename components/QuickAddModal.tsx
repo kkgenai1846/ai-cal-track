@@ -62,7 +62,6 @@ export function QuickAddModal({
             title: "Scan Food",
             icon: "scan",
             iconLibrary: "Ionicons",
-            isPremium: true,
             onPress: onScanFood,
         },
     ];
@@ -137,7 +136,7 @@ export function QuickAddModal({
 const styles = StyleSheet.create({
     overlay: {
         flex: 1,
-        backgroundColor: "transparent",
+        backgroundColor: "rgba(0, 0, 0, 0.5)",
         justifyContent: "flex-end",
         alignItems: "stretch",
     },

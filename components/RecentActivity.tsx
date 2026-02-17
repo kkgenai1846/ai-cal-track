@@ -7,7 +7,7 @@ type ActivityItem = {
     id: string;
     type: "meal" | "water" | "exercise" | "food";
     name: string;
-    calories?: number;
+    calories: number;
     time: string;
     protein?: number;
     carbs?: number;
@@ -20,7 +20,7 @@ type ActivityItem = {
 
 type RecentActivityProps = {
     activities: ActivityItem[];
-    onDelete?: (item: ActivityItem) => void;
+    onDelete?: (item: ActivityItem) => void | Promise<void>;
 };
 
 export function RecentActivity({ activities, onDelete }: RecentActivityProps) {
