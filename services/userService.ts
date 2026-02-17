@@ -10,6 +10,22 @@ export interface UserData {
     updatedAt: Date;
     onboardingCompleted: boolean;
     caloriesGoal?: number; // Future feature
+
+    // Onboarding Data
+    gender?: 'male' | 'female' | 'other';
+    goal?: 'gain' | 'lose' | 'maintain';
+    workoutFrequency?: string;
+    birthday?: Date;
+    height?: number; // in feet
+    weight?: number; // in kg
+
+    // AI Fitness Plan
+    dailyCalories?: number;
+    dailyProtein?: number;
+    dailyCarbs?: number;
+    dailyFat?: number;
+    dailyWater?: number; // in liters
+    aiAdvice?: string;
 }
 
 export const userService = {
@@ -35,7 +51,14 @@ export const userService = {
             const docRef = doc(db, "users", uid);
             const docSnap = await getDoc(docRef);
             if (docSnap.exists()) {
-                return docSnap.data() as UserData;
+                const data = docSnap.data();
+                return {
+                    ...data,
+                    // Convert Firestore Timestamps to Dates if needed
+                    createdAt: data.createdAt?.toDate?.() || data.createdAt,
+                    updatedAt: data.updatedAt?.toDate?.() || data.updatedAt,
+                    birthday: data.birthday?.toDate?.() || data.birthday,
+                } as UserData;
             } else {
                 return null;
             }
@@ -53,9 +76,24 @@ export const userService = {
                 updatedAt: new Date()
             });
             return true;
-            return true;
         } catch (e) {
             console.error("Error updating user: ", e);
+            return false;
+        }
+    },
+
+    async updateOnboardingData(uid: string, data: Partial<UserData>) {
+        try {
+            const docRef = doc(db, "users", uid);
+            await updateDoc(docRef, {
+                onboardingCompleted: true, // Default to true, but allow override
+                ...data,
+                updatedAt: new Date()
+            });
+            console.log("Onboarding data updated successfully!");
+            return true;
+        } catch (e) {
+            console.error("Error updating onboarding data: ", e);
             return false;
         }
     },
@@ -65,24 +103,35 @@ export const userService = {
             const uid = user.id;
             const existingUser = await this.getUser(uid);
 
-            if (!existingUser) {
-                console.log("User not found in Firestore, syncing...");
-                const email = user.emailAddresses[0]?.emailAddress || "";
-                const firstName = user.firstName || "";
-                const lastName = user.lastName || "";
-
-                await this.createUser(uid, {
-                    email,
-                    firstName,
-                    lastName,
-                    photoUrl: user.imageUrl,
-                });
-                return true;
+            if (existingUser) {
+                return existingUser;
             }
-            return false; // User already exists
+
+            console.log("User not found in Firestore, syncing...");
+            const email = user.emailAddresses[0]?.emailAddress || "";
+            const firstName = user.firstName || "";
+            const lastName = user.lastName || "";
+
+            const newUser: Omit<UserData, 'createdAt' | 'updatedAt' | 'onboardingCompleted'> = {
+                email,
+                firstName,
+                lastName,
+                photoUrl: user.imageUrl,
+            };
+
+            await this.createUser(uid, newUser);
+
+            // Return the newly created user with default fields
+            return {
+                ...newUser,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+                onboardingCompleted: false
+            } as UserData;
+
         } catch (e) {
             console.error("Error syncing user: ", e);
-            return false;
+            return null;
         }
     }
 };
