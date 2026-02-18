@@ -6,8 +6,8 @@ import { AuthButton } from '../components/AuthButton';
 import { Colors } from '../constants/Colors';
 import { userService } from '../services/userService';
 
-export default function HomeScreen() {
-  const { signOut, isSignedIn, isLoaded } = useAuth();
+export default function Index() {
+  const { isSignedIn, isLoaded } = useAuth();
   const { user } = useUser();
 
   const router = useRouter();
