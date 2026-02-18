@@ -9,7 +9,28 @@ export interface UserData {
     createdAt: Date;
     updatedAt: Date;
     onboardingCompleted: boolean;
-    caloriesGoal?: number; // Future feature
+
+    // Physical Stats
+    age?: number;
+    birthday?: Date;
+    weight?: number; // in kg
+    height?: number; // in cm
+    gender?: 'male' | 'female' | 'other';
+    activityLevel?: string;
+    goal?: string;
+    workoutFrequency?: string;
+
+    // Daily Goals (Calculated by AI)
+    caloriesGoal?: number; // Legacy or duplicate? Keeping for safety
+    dailyCalories?: number; // Main one used in Home
+    dailyProtein?: number;
+    dailyCarbs?: number;
+    dailyFat?: number;
+    dailyWater?: number;
+
+    // Preferences
+    theme?: 'system' | 'light' | 'dark';
+    notificationsEnabled?: boolean;
 }
 
 export const userService = {
@@ -53,9 +74,19 @@ export const userService = {
                 updatedAt: new Date()
             });
             return true;
-            return true;
         } catch (e) {
             console.error("Error updating user: ", e);
+            return false;
+        }
+    },
+
+    async updateOnboardingData(uid: string, data: Partial<UserData>) {
+        try {
+            console.log("Updating onboarding data for:", uid, data);
+            // Re-use updateUser which handles the merge and updatedAt
+            return await this.updateUser(uid, data);
+        } catch (e) {
+            console.error("Error updating onboarding data: ", e);
             return false;
         }
     },
