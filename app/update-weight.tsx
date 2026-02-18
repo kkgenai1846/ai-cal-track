@@ -1,6 +1,6 @@
 import { useUser } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, SafeAreaView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { RulerPicker } from 'react-native-ruler-picker';
@@ -9,19 +9,42 @@ import { logService } from '../services/logService';
 
 export default function UpdateWeightScreen() {
     const router = useRouter();
+    const params = useLocalSearchParams();
     const { user, isLoaded } = useUser();
+
+    // We intentionally start with null and a loading state to ensure 
+    // we determine the ONLY correct start weight before rendering the picker.
+    // This prevents the "flash of default" or "reset to min" issues.
     const [weight, setWeight] = useState<number | null>(null);
+    const [isReady, setIsReady] = useState(false);
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
-        if (isLoaded && user) {
-            // Use saved weight or default to 70 if not set
-            const initialWeight = user.unsafeMetadata?.weight
-                ? Number(user.unsafeMetadata.weight)
-                : 70;
-            setWeight(initialWeight);
+        if (!isLoaded || !user) return;
+
+        let startWeight = 70; // Hard fallback
+
+        // 1. Params (High Priority)
+        if (params.currentWeight) {
+            const val = Number(Array.isArray(params.currentWeight) ? params.currentWeight[0] : params.currentWeight);
+            if (!isNaN(val) && val > 0) {
+                startWeight = val;
+            }
         }
-    }, [isLoaded, user]);
+        // 2. Metadata (Medium Priority - only if param missing/invalid)
+        else {
+            const metadataWeight = Number(user.publicMetadata?.weight || user.unsafeMetadata?.weight);
+            if (!isNaN(metadataWeight) && metadataWeight > 0) {
+                startWeight = metadataWeight;
+            }
+        }
+
+        if (startWeight < 35) startWeight = 70;
+
+        console.log("Resolved Start Weight:", startWeight);
+        setWeight(startWeight);
+        setIsReady(true);
+    }, [isLoaded, user, params.currentWeight]);
 
     const handleSaveWeight = async () => {
         if (!user || weight === null) return;
@@ -30,8 +53,7 @@ export default function UpdateWeightScreen() {
             const today = new Date().toISOString().split('T')[0];
             await logService.logWeight(user.id, weight, today);
 
-            // Update local user metadata for immediate UI feedback if needed, 
-            // though keeping it in sync with DB is best
+            // Update local user metadata for immediate UI feedback
             await user.update({
                 unsafeMetadata: {
                     ...user.unsafeMetadata,
@@ -48,7 +70,7 @@ export default function UpdateWeightScreen() {
         }
     };
 
-    if (!isLoaded || weight === null) {
+    if (!isReady || weight === null) {
         return (
             <SafeAreaView style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
                 <ActivityIndicator size="large" color={Colors.primary} />
@@ -75,21 +97,26 @@ export default function UpdateWeightScreen() {
                 <Text style={styles.instruction}>Swipe to adjust</Text>
 
                 <View style={styles.rulerContainer}>
-                    <RulerPicker
-                        min={30}
-                        max={200}
-                        step={0.1}
-                        fractionDigits={1}
-                        initialValue={weight}
-                        onValueChange={(value) => setWeight(Number(value))}
-                        onValueChangeEnd={(value) => setWeight(Number(value))}
-                        unit=""
-                        width={350}
-                        height={150}
-                        indicatorColor={Colors.primary}
-                        indicatorHeight={40}
-                        valueTextStyle={{ color: Colors.background, fontSize: 32 }}
-                    />
+                    {isReady && weight !== null ? (
+                        <RulerPicker
+                            key={String(weight)} // NUCLEAR OPTION: Force remount if weight changes
+                            min={30}
+                            max={200}
+                            step={0.1}
+                            fractionDigits={1}
+                            initialValue={weight}
+                            onValueChange={(value) => setWeight(Number(value))}
+                            onValueChangeEnd={(value) => setWeight(Number(value))}
+                            unit=""
+                            width={350}
+                            height={150}
+                            indicatorColor={Colors.primary}
+                            indicatorHeight={40}
+                            valueTextStyle={{ color: Colors.background, fontSize: 32 }}
+                        />
+                    ) : (
+                        <ActivityIndicator size="small" color={Colors.primary} />
+                    )}
                 </View>
 
                 <TouchableOpacity

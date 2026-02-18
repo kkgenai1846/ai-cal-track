@@ -39,6 +39,64 @@ export interface WeeklyInsight {
 }
 
 export const aiService = {
+    async generateFitnessPlan(userData: any): Promise<any> {
+        try {
+            console.log("Generating fitness plan for:", userData);
+
+            const prompt = `
+            You are an expert nutritionist and fitness coach.
+            Create a personalized daily nutrition and hydration plan for this user:
+            
+            Profile:
+            - Age: ${userData.age}
+            - Weight: ${userData.weight}kg
+            - Height: ${userData.height}cm
+            - Gender: ${userData.gender}
+            - Activity Level: ${userData.activityLevel}
+            - Goal: ${userData.goal}
+
+            Return a valid JSON object with these exact keys (numbers only):
+            {
+                "dailyCalories": number,
+                "dailyProtein": number (grams),
+                "dailyCarbs": number (grams),
+                "dailyFat": number (grams),
+                "dailyWater": number (liters, e.g. 2.5)
+            }
+            Calculations should be based on Mifflin-St Jeor equation and standard macro splits suitable for their goal.
+            `;
+
+            const completion = await groq.chat.completions.create({
+                model: 'llama-3.3-70b-versatile',
+                messages: [
+                    { role: 'system', content: "You are a helpful fitness AI that outputs strict JSON." },
+                    { role: 'user', content: prompt }
+                ],
+                temperature: 0.7,
+                response_format: { type: 'json_object' }
+            });
+
+            const content = completion.choices[0]?.message?.content;
+            if (!content) throw new Error('No plan generated');
+
+            const plan = JSON.parse(content);
+            console.log("Generated Plan:", plan);
+
+            return plan;
+
+        } catch (error) {
+            console.error('Error generating fitness plan:', error);
+            // Fallback plan if AI fails
+            return {
+                dailyCalories: 2000,
+                dailyProtein: 150,
+                dailyCarbs: 200,
+                dailyFat: 65,
+                dailyWater: 3
+            };
+        }
+    },
+
     async generateWeeklyInsight(userId: string, logs: DailyLog[]): Promise<WeeklyInsight> {
         try {
             // 1. Check for cached insight

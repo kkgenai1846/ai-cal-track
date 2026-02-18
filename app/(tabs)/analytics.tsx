@@ -263,7 +263,7 @@ export default function AnalyticsScreen() {
                     {/* Weight Card */}
                     <TouchableOpacity
                         style={styles.card}
-                        onPress={() => router.push('/update-weight')}
+                        onPress={() => router.push({ pathname: '/update-weight', params: { currentWeight: String(weight || 70) } })}
                     >
                         <View style={styles.weightIconContainer}>
                             <Ionicons name="fitness" size={24} color={Colors.primary} />
