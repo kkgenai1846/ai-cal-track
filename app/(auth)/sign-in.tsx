@@ -6,6 +6,7 @@ import React, { useEffect, useState } from 'react';
 import { Alert, Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { AuthButton } from '../../components/AuthButton';
 import { AuthInput } from '../../components/AuthInput';
+import { Colors } from '../../constants/Colors';
 import { useWarmUpBrowser } from '../../hooks/useWarmUpBrowser';
 
 export default function SignInScreen() {
@@ -114,7 +115,7 @@ export default function SignInScreen() {
                         title="Sign in with Google"
                         onPress={onGoogleSignInPress}
                         variant="google"
-                        icon={<Ionicons name="logo-google" size={20} color="#333" style={{ marginRight: 8 }} />}
+                        icon={<Ionicons name="logo-google" size={20} color={Colors.google} style={{ marginRight: 8 }} />}
                     />
 
                     <View style={styles.footer}>
@@ -132,7 +133,7 @@ export default function SignInScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#ffffff',
+        backgroundColor: Colors.background,
     },
     scrollContent: {
         flexGrow: 1,
@@ -153,12 +154,12 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 28,
         fontWeight: '700',
-        color: '#1a1a1a',
+        color: Colors.text,
         marginBottom: 8,
     },
     subtitle: {
         fontSize: 16,
-        color: '#666',
+        color: Colors.textSecondary,
         textAlign: 'center',
     },
     form: {
@@ -169,7 +170,7 @@ const styles = StyleSheet.create({
         marginBottom: 24,
     },
     forgotPasswordText: {
-        color: '#6a11cb',
+        color: Colors.primary,
         fontSize: 14,
         fontWeight: '500',
     },
@@ -181,11 +182,11 @@ const styles = StyleSheet.create({
     dividerLine: {
         flex: 1,
         height: 1,
-        backgroundColor: '#eee',
+        backgroundColor: Colors.border,
     },
     dividerText: {
         marginHorizontal: 16,
-        color: '#999',
+        color: Colors.textLight,
         fontSize: 14,
     },
     footer: {
@@ -194,11 +195,11 @@ const styles = StyleSheet.create({
         marginTop: 24,
     },
     footerText: {
-        color: '#666',
+        color: Colors.textSecondary,
         fontSize: 14,
     },
     linkText: {
-        color: '#6a11cb',
+        color: Colors.primary,
         fontSize: 14,
         fontWeight: '700',
     },

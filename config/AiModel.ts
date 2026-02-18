@@ -1,13 +1,11 @@
-import OpenAI from "openai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const API_KEY = process.env.EXPO_PUBLIC_GROQ_API_KEY;
+const API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
 
 if (!API_KEY) {
-    console.warn("Missing EXPO_PUBLIC_GROQ_API_KEY. AI features will not work.");
+    console.warn("Missing EXPO_PUBLIC_GEMINI_API_KEY. AI features will not work.");
 }
 
-export const groq = new OpenAI({
-    apiKey: API_KEY || "",
-    baseURL: "https://api.groq.com/openai/v1",
-    dangerouslyAllowBrowser: true, // Required for Expo/React Native client-side usage
-});
+const genAI = new GoogleGenerativeAI(API_KEY || "");
+
+export const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });

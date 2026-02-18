@@ -4,7 +4,6 @@
  */
 export const Colors = {
     primary: '#51af73',
-    primaryLight: '#EAF7EF', // Very light tint of primary
     primaryGradient: ['#51af73', '#51af73'] as const, // Solid gradient for now as requested: "linear-gradient(to right, #51af73 0%, #51af73 100%)"
     secondary: '#6a11cb', // Keeping old primary as secondary for now
 
